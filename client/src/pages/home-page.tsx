@@ -111,14 +111,24 @@ export default function HomePage() {
   async function onSubmit() {
     try {
       // Add all selected keywords
-      for (const keyword of Array.from(selectedKeywords)) {  // Convert Set to Array for iteration
+      for (const keyword of Array.from(selectedKeywords)) {
         try {
           await addKeywordMutation.mutateAsync(keyword);
         } catch (error) {
-          if (error instanceof Error && error.message.includes('Session expired')) {
-            // Session expired error will be handled by the axios interceptor
-            // which will redirect to the auth page
-            return;
+          if (error instanceof Error) {
+            if (error.message.includes('Session expired')) {
+              // Session expired error will be handled by the axios interceptor
+              // which will redirect to the auth page
+              return;
+            }
+            if (error.message.includes('already in your semantic core')) {
+              toast({
+                title: "Keyword exists",
+                description: `"${keyword}" is already in your semantic core`,
+                variant: "default"
+              });
+              continue; // Skip this keyword and continue with others
+            }
           }
           throw error;
         }
@@ -155,9 +165,9 @@ export default function HomePage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Input 
-                        placeholder="Enter keyword..." 
-                        {...field} 
+                      <Input
+                        placeholder="Enter keyword..."
+                        {...field}
                         onChange={handleKeywordChange}
                       />
                     </FormControl>
@@ -190,8 +200,8 @@ export default function HomePage() {
 
                       <div className="space-y-2">
                         {previewData.content?.includingPhrases?.items?.map((item: RelatedKeyword, index: number) => (
-                          <div 
-                            key={index} 
+                          <div
+                            key={index}
                             className="flex items-center justify-between p-3 bg-background rounded hover:bg-accent/5"
                           >
                             <div className="flex items-center gap-3">

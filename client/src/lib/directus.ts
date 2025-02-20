@@ -80,7 +80,7 @@ export async function getUserInfo() {
 
 export async function getKeywords() {
   try {
-    const { data } = await client.get<{ data: Keyword[] }>('/items/user_keywords');
+    const { data } = await client.get<{ data: Keyword[] }>('/items/user_keywords?sort=-id');
     return data.data;
   } catch (error) {
     console.error('Get keywords error:', error);
@@ -118,6 +118,16 @@ export async function getWordstatData(keyword: string): Promise<WordstatResponse
   }
 }
 
+export async function checkKeywordExists(keyword: string): Promise<boolean> {
+  try {
+    const { data } = await client.get<{ data: Keyword[] }>(`/items/user_keywords?filter[keyword][_eq]=${encodeURIComponent(keyword)}`);
+    return data.data.length > 0;
+  } catch (error) {
+    console.error('Check keyword error:', error);
+    return false;
+  }
+}
+
 export async function addKeyword(keyword: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -125,6 +135,12 @@ export async function addKeyword(keyword: string) {
 
     if (!userId) {
       throw new Error('User ID not found. Please login again.');
+    }
+
+    // Check if keyword already exists
+    const exists = await checkKeywordExists(keyword);
+    if (exists) {
+      throw new Error('This keyword is already in your semantic core');
     }
 
     // Get statistics before adding the keyword
@@ -151,7 +167,6 @@ export async function addKeyword(keyword: string) {
     console.error('Add keyword error:', error);
     if (axios.isAxiosError(error)) {
       if (error.response?.status === 401) {
-        // Handle 401 specifically
         throw new Error('Session expired. Please login again.');
       }
       const errorMessage = error.response?.data?.errors?.[0]?.message || 'Failed to add keyword';
