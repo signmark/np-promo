@@ -1,8 +1,14 @@
 import axios from "axios";
 import type { LoginCredentials, Keyword } from "@shared/schema";
 
+// Получаем URL API из переменных окружения или используем значение по умолчанию
+const API_URL = import.meta.env.VITE_DIRECTUS_API_URL || 'https://directus-production-44d1.up.railway.app';
+
 const client = axios.create({
-  baseURL: 'http://localhost:8055',
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
 client.interceptors.request.use((config) => {
@@ -13,24 +19,63 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+client.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('directus_token');
+      window.location.href = '/auth';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export async function login(credentials: LoginCredentials) {
-  const { data } = await client.post('/auth/login', credentials);
-  localStorage.setItem('directus_token', data.data.access_token);
-  return data.data;
+  try {
+    const { data } = await client.post('/auth/login', credentials);
+    localStorage.setItem('directus_token', data.data.access_token);
+    return data.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to login');
+    }
+    throw error;
+  }
 }
 
 export async function getKeywords() {
-  const { data } = await client.get<{ data: Keyword[] }>('/items/user_keywords');
-  return data.data;
+  try {
+    const { data } = await client.get<{ data: Keyword[] }>('/items/user_keywords');
+    return data.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to fetch keywords');
+    }
+    throw error;
+  }
 }
 
 export async function addKeyword(keyword: string) {
-  const { data } = await client.post<{ data: Keyword }>('/items/user_keywords', {
-    keyword
-  });
-  return data.data;
+  try {
+    const { data } = await client.post<{ data: Keyword }>('/items/user_keywords', {
+      keyword
+    });
+    return data.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to add keyword');
+    }
+    throw error;
+  }
 }
 
 export async function deleteKeyword(id: string) {
-  await client.delete(`/items/user_keywords/${id}`);
+  try {
+    await client.delete(`/items/user_keywords/${id}`);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to delete keyword');
+    }
+    throw error;
+  }
 }
