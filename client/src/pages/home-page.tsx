@@ -95,7 +95,16 @@ export default function HomePage() {
   const handleKeywordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     form.setValue("keyword", value);
-    handlePreview(value);
+  };
+
+  const handleKeyPress = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const keyword = form.getValues("keyword");
+      if (keyword) {
+        await handlePreview(keyword);
+      }
+    }
   };
 
   const toggleKeyword = (phrase: string) => {
@@ -169,6 +178,7 @@ export default function HomePage() {
                         placeholder="Enter keyword..."
                         {...field}
                         onChange={handleKeywordChange}
+                        onKeyPress={handleKeyPress}
                       />
                     </FormControl>
                     <FormMessage />
