@@ -299,13 +299,22 @@ export async function getKeywordWithTrendPrediction(keyword: string): Promise<Ke
       sources: wordstatData.response.data.sources
     });
 
-    // Update the keyword with trend prediction
+    console.log('Generated trend prediction:', trendPrediction);
+
+    // Update the keyword with trend prediction in Directus
     const { data: { data: updatedKeyword } } = await client.patch<{ data: KeywordWithTrend }>(
       `/items/user_keywords/${keywordData.id}`,
       {
-        trend_prediction: trendPrediction
+        trend_prediction: JSON.stringify(trendPrediction) // Stringify the prediction object
       }
     );
+
+    console.log('Updated keyword with trend:', updatedKeyword);
+
+    // Parse the trend_prediction back from string if needed
+    if (typeof updatedKeyword.trend_prediction === 'string') {
+      updatedKeyword.trend_prediction = JSON.parse(updatedKeyword.trend_prediction);
+    }
 
     return updatedKeyword;
   } catch (error) {
