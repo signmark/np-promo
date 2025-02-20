@@ -1,5 +1,7 @@
 import axios from "axios";
 import type { LoginCredentials, Keyword, SearchSettings } from "@shared/schema";
+import { predictKeywordTrend } from "./openai";
+import type { KeywordTrend, KeywordWithTrend } from "@shared/schema";
 
 const API_URL = "https://directus.nplanner.ru";
 const N8N_WEBHOOK_URL = "https://n8n.nplanner.ru/webhook/4af3f3e9-aeec-4d31-933b-1e6e5ef68f93";
@@ -86,7 +88,9 @@ export async function getKeywords() {
       throw new Error('User ID not found. Please login again.');
     }
 
-    const { data } = await client.get<{ data: Keyword[] }>(`/items/user_keywords?sort=-id&filter[user_id][_eq]=${userId}`);
+    const { data } = await client.get<{ data: KeywordWithTrend[] }>(
+      `/items/user_keywords?sort=-id&filter[user_id][_eq]=${userId}`
+    );
     return data.data;
   } catch (error) {
     console.error('Get keywords error:', error);
@@ -273,5 +277,38 @@ export async function generateSearchQuery(keyword: string, settings: SearchSetti
   } catch (error) {
     console.error('N8N webhook error:', error);
     throw new Error('Failed to generate search queries');
+  }
+}
+
+export async function getKeywordWithTrendPrediction(keyword: string): Promise<KeywordWithTrend> {
+  try {
+    // First get the existing keyword data
+    const { data } = await client.get<{ data: KeywordWithTrend }>(`/items/user_keywords?filter[keyword][_eq]=${encodeURIComponent(keyword)}`);
+    const keywordData = data.data;
+
+    // Get historical data from WordStat
+    const wordstatData = await getWordstatData(keyword);
+
+    // Get AI prediction based on historical data
+    const trendPrediction = await predictKeywordTrend(keyword, {
+      shows: wordstatData.response.data.shows,
+      sources: wordstatData.response.data.sources
+    });
+
+    // Update the keyword with trend prediction
+    const updatedKeyword = await client.patch<{ data: KeywordWithTrend }>(
+      `/items/user_keywords/${keywordData.id}`,
+      {
+        trend_prediction: trendPrediction
+      }
+    );
+
+    return updatedKeyword.data.data;
+  } catch (error) {
+    console.error('Get keyword trend prediction error:', error);
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to get trend prediction');
+    }
+    throw error;
   }
 }

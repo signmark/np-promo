@@ -13,6 +13,18 @@ export const keywordSchema = z.object({
   mentions_count: z.number().optional(),
 });
 
+export const keywordTrendSchema = z.object({
+  trend_direction: z.enum(['up', 'down', 'stable']),
+  growth_potential: z.number().min(0).max(100),
+  confidence_score: z.number().min(0).max(1),
+  seasonality: z.array(z.string()),
+  prediction_date: z.string(),
+});
+
+export const keywordWithTrendSchema = keywordSchema.extend({
+  trend_prediction: keywordTrendSchema.optional(),
+});
+
 export const searchSettingsSchema = z.object({
   user_id: z.string(),
   social_networks: z.array(z.enum([
@@ -57,3 +69,5 @@ export type LoginCredentials = z.infer<typeof loginSchema>;
 export type Keyword = z.infer<typeof keywordSchema>;
 export type WordstatResponse = z.infer<typeof wordstatResponseSchema>;
 export type SearchSettings = z.infer<typeof searchSettingsSchema>;
+export type KeywordTrend = z.infer<typeof keywordTrendSchema>;
+export type KeywordWithTrend = z.infer<typeof keywordWithTrendSchema>;
