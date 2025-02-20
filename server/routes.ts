@@ -43,7 +43,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               shows: [], 
               sources: [] 
             } 
-          } 
+          },
+          content: {
+            includingPhrases: {
+              items: []
+            }
+          }
         });
       }
 
@@ -60,7 +65,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             shows: processedData.map(item => ({ shows: item.shows })),
             sources: processedData.map(item => ({ count: item.shows }))
           }
-        }
+        },
+        content: data.content // Передаем оригинальные данные для отображения в интерфейсе
       };
 
       res.json(formattedResponse);

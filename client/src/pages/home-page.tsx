@@ -135,7 +135,7 @@ export default function HomePage() {
               {previewData && previewKeyword === form.getValues("keyword") && (
                 <Card className="bg-muted">
                   <CardContent className="pt-4">
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       <div>
                         <span className="font-medium">Average Shows: </span>
                         {Math.round(
@@ -153,9 +153,24 @@ export default function HomePage() {
                           )}
                         </div>
                       )}
+
+                      <div className="mt-4">
+                        <h3 className="font-medium mb-2">Related Keywords:</h3>
+                        <div className="max-h-60 overflow-y-auto">
+                          <div className="space-y-2">
+                            {previewData.content?.includingPhrases?.items?.map((item: any, index: number) => (
+                              <div key={index} className="flex justify-between items-center p-2 bg-background rounded">
+                                <span>{item.phrase}</span>
+                                <span className="text-muted-foreground">{item.number}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
                       <Button
                         type="submit"
-                        className="w-full"
+                        className="w-full mt-4"
                         disabled={addKeywordMutation.isPending}
                       >
                         {addKeywordMutation.isPending ? (
