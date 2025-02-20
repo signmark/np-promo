@@ -17,7 +17,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen">
-        <Sidebar className="border-r bg-background" variant="floating">
+        <Sidebar className="border-r bg-background" variant="floating" collapsible="offcanvas">
           <SidebarHeader className="flex items-center justify-between p-4">
             <div className="text-xl font-bold text-primary">SEO Tools</div>
             <div className="md:hidden">
