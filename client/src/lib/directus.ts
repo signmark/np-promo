@@ -5,18 +5,18 @@ import type { KeywordTrend, KeywordWithTrend } from "@shared/schema";
 const API_URL = "https://directus.nplanner.ru";
 
 const client = axios.create({
- baseURL: API_URL,
- headers: {
-   'Content-Type': 'application/json'
- }
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
 client.interceptors.request.use((config) => {
- const token = localStorage.getItem('directus_token');
- if (token) {
-   config.headers.Authorization = `Bearer ${token}`;
- }
- return config;
+  const token = localStorage.getItem('directus_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 client.interceptors.response.use(
@@ -117,6 +117,27 @@ export async function getWordstatData(keyword: string): Promise<WordstatResponse
     }
 
     const data = await response.json();
+
+    // Validate data structure
+    if (!data?.response?.data?.shows || !Array.isArray(data.response.data.shows)) {
+      throw new Error('Invalid WordStat data format');
+    }
+
+    // Ensure minimum data points
+    if (data.response.data.shows.length < 6) {
+      throw new Error('Insufficient historical data for accurate prediction');
+    }
+
+    // Remove any invalid entries
+    data.response.data.shows = data.response.data.shows.filter(
+      (item: any) => typeof item.shows === 'number' && !isNaN(item.shows)
+    );
+
+    // Sort data chronologically if timestamps are available
+    if (data.response.data.shows[0]?.timestamp) {
+      data.response.data.shows.sort((a: any, b: any) => a.timestamp - b.timestamp);
+    }
+
     console.log('WordStat data received:', data);
     return data;
   } catch (error) {

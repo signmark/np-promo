@@ -18,17 +18,45 @@ interface HistoricalData {
 
 export async function predictKeywordTrend(keyword: string, historicalData: HistoricalData): Promise<KeywordTrend> {
   try {
+    // Calculate averages and trends
+    const recentShows = historicalData.shows.slice(-6);
+    const oldShows = historicalData.shows.slice(-12, -6);
+
+    const recentAvg = recentShows.reduce((sum, item) => sum + item.shows, 0) / recentShows.length;
+    const oldAvg = oldShows.reduce((sum, item) => sum + item.shows, 0) / oldShows.length;
+
+    const percentChange = ((recentAvg - oldAvg) / oldAvg) * 100;
+
+    // Calculate monthly patterns for seasonality
+    const monthlyTotals = historicalData.shows.reduce((acc, item, index) => {
+      const monthIndex = index % 12;
+      acc[monthIndex] = (acc[monthIndex] || 0) + item.shows;
+      return acc;
+    }, Array(12).fill(0));
+
     const messages = [
       {
         role: "system" as const,
-        content: "You are an expert SEO analyst specializing in keyword trend prediction. You must analyze the historical data and predict future trends. Return ONLY valid JSON that matches the KeywordTrend schema with these fields: trend_direction (must be 'up', 'down', or 'stable'), growth_potential (0-100), confidence_score (0-1), seasonality (array of strings), prediction_date (ISO string)."
+        content: `You are an expert SEO analyst specializing in keyword trend prediction. Analyze the data with these guidelines:
+- Look for clear directional changes in recent data
+- Consider the magnitude and consistency of changes
+- Factor in any seasonal patterns
+- Assess the data quality and completeness
+Return ONLY valid JSON that matches the KeywordTrend schema.`
       },
       {
         role: "user" as const,
         content: JSON.stringify({
           keyword,
-          historicalData,
-          request: "Analyze this keyword's historical trend data and provide a prediction. Include trend direction, growth potential (0-100), confidence score (0-1), seasonality patterns, and today's date as prediction_date. Return ONLY the JSON prediction object."
+          analysis: {
+            totalDataPoints: historicalData.shows.length,
+            recentAverage: recentAvg,
+            historicalAverage: oldAvg,
+            percentChange: percentChange,
+            monthlyPatterns: monthlyTotals,
+            sourceCount: historicalData.sources?.length || 0,
+          },
+          request: "Based on this historical data, provide a prediction including trend direction ('up'/'down'/'stable'), growth potential (0-100), confidence score (0-1), seasonality patterns, and today's date as prediction_date."
         })
       }
     ];
@@ -63,10 +91,28 @@ export async function predictKeywordTrend(keyword: string, historicalData: Histo
       throw new Error('Invalid trend direction in OpenAI response');
     }
 
+    // Lower confidence if data is sparse
+    if (historicalData.shows.length < 12) {
+      trend.confidence_score *= 0.7;
+    }
+
+    // Adjust growth potential based on historical volatility
+    const volatility = calculateVolatility(historicalData.shows);
+    if (volatility > 0.5) {
+      trend.growth_potential = Math.min(trend.growth_potential, 50);
+    }
+
     console.log('Processed trend prediction:', trend);
     return trend;
   } catch (error) {
     console.error('Error predicting keyword trend:', error);
     throw new Error('Failed to predict keyword trend');
   }
+}
+
+function calculateVolatility(shows: Array<{ shows: number }>): number {
+  const values = shows.map(s => s.shows);
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
+  return Math.sqrt(variance) / mean;
 }
