@@ -79,7 +79,7 @@ export default function HomePage() {
         ...prev,
         [keyword]: trendPrediction
       }));
-      return trendPrediction;
+      return { prediction: trendPrediction, historicalData: wordstatData.response.data.shows };
     },
     onSuccess: () => {
       toast({ title: "Trend prediction updated" });
@@ -320,7 +320,6 @@ export default function HomePage() {
                   <AnimatedTrend
                     trend={trendPredictions[keyword.keyword] || keyword.trend_prediction!}
                     historicalData={previewData?.response?.data?.shows || []}
-                    isLoading={predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword}
                   />
                 </div>
               )}
