@@ -135,18 +135,19 @@ export function AnimatedTrend({ trend, historicalData }: AnimatedTrendProps) {
             </motion.div>
 
             {/* Seasonality tags */}
-            {trend.seasonality.length > 0 && (
+            {trend.seasonality && trend.seasonality.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.6 }}
+                className="bg-muted/50 p-4 rounded-lg"
               >
                 <h4 className="text-sm font-medium mb-2">Сезонность:</h4>
                 <div className="flex flex-wrap gap-2">
                   {trend.seasonality.map((season, index) => (
                     <motion.span
                       key={index}
-                      className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium"
+                      className="inline-flex items-center rounded-full bg-background border px-2.5 py-0.5 text-xs font-medium"
                       initial={{ opacity: 0, scale: 0.5, y: 20 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       transition={{

@@ -16,6 +16,12 @@ interface HistoricalData {
   sources?: Array<{ count: number }>;
 }
 
+// Map month indices to names for better seasonality analysis
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
 export async function predictKeywordTrend(keyword: string, historicalData: HistoricalData): Promise<KeywordTrend> {
   try {
     // Calculate averages and trends
@@ -34,15 +40,28 @@ export async function predictKeywordTrend(keyword: string, historicalData: Histo
       return acc;
     }, Array(12).fill(0));
 
+    // Find peak and low months
+    const monthlyAvg = monthlyTotals.reduce((a, b) => a + b, 0) / 12;
+    const peakMonths = monthlyTotals
+      .map((total, index) => ({ total, month: MONTHS[index] }))
+      .filter(m => m.total > monthlyAvg * 1.2)
+      .map(m => m.month);
+    const lowMonths = monthlyTotals
+      .map((total, index) => ({ total, month: MONTHS[index] }))
+      .filter(m => m.total < monthlyAvg * 0.8)
+      .map(m => m.month);
+
     const messages = [
       {
         role: "system" as const,
-        content: `You are an expert SEO analyst specializing in keyword trend prediction. Analyze the data with these guidelines:
-- Look for clear directional changes in recent data
-- Consider the magnitude and consistency of changes
-- Factor in any seasonal patterns
-- Assess the data quality and completeness
-Return ONLY valid JSON that matches the KeywordTrend schema.`
+        content: `You are an expert SEO analyst specializing in keyword trend prediction. Analyze the data and return ONLY valid JSON with these fields:
+- trend_direction: must be 'up', 'down', or 'stable'
+- growth_potential: number between 0-100
+- confidence_score: number between 0-1
+- seasonality: array of month names (e.g. ["January", "February"])
+- prediction_date: current date in ISO format
+
+The seasonality array should only include months with significant seasonal impact.`
       },
       {
         role: "user" as const,
@@ -53,10 +72,11 @@ Return ONLY valid JSON that matches the KeywordTrend schema.`
             recentAverage: recentAvg,
             historicalAverage: oldAvg,
             percentChange: percentChange,
+            peakMonths,
+            lowMonths,
             monthlyPatterns: monthlyTotals,
             sourceCount: historicalData.sources?.length || 0,
-          },
-          request: "Based on this historical data, provide a prediction including trend direction ('up'/'down'/'stable'), growth potential (0-100), confidence score (0-1), seasonality patterns, and today's date as prediction_date."
+          }
         })
       }
     ];
@@ -77,12 +97,30 @@ Return ONLY valid JSON that matches the KeywordTrend schema.`
 
     const prediction = JSON.parse(content);
 
+    // Extract seasonality from prediction
+    let seasonality: string[] = [];
+    if (typeof prediction.seasonality === 'string') {
+      // Handle string format by extracting month names
+      seasonality = MONTHS.filter(month => 
+        prediction.seasonality.toLowerCase().includes(month.toLowerCase())
+      );
+    } else if (Array.isArray(prediction.seasonality)) {
+      // Use array as-is if it's already an array
+      seasonality = prediction.seasonality;
+    } else if (prediction.seasonality && typeof prediction.seasonality === 'object') {
+      // Handle object format (e.g. {peak_months: [], low_months: []})
+      seasonality = [
+        ...(prediction.seasonality.peak_months || []),
+        ...(prediction.seasonality.low_months || [])
+      ];
+    }
+
     // Validate and normalize the prediction data
     const trend: KeywordTrend = {
       trend_direction: prediction.trend_direction,
       growth_potential: Math.min(100, Math.max(0, prediction.growth_potential)),
       confidence_score: Math.min(1, Math.max(0, prediction.confidence_score)),
-      seasonality: Array.isArray(prediction.seasonality) ? prediction.seasonality : [],
+      seasonality: seasonality.filter(month => MONTHS.includes(month)),
       prediction_date: prediction.prediction_date || new Date().toISOString(),
     };
 
