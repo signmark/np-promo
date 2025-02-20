@@ -91,7 +91,8 @@ export async function addKeyword(keyword: string) {
 
     const payload = {
       keyword,
-      user_created: userId
+      user_id: userId,
+      type: "main"
     };
     console.log('Request payload:', payload);
 
