@@ -111,14 +111,23 @@ export default function HomePage() {
   async function onSubmit() {
     try {
       // Add all selected keywords
-      for (const keyword of selectedKeywords) {
-        await addKeywordMutation.mutateAsync(keyword);
+      for (const keyword of Array.from(selectedKeywords)) {  // Convert Set to Array for iteration
+        try {
+          await addKeywordMutation.mutateAsync(keyword);
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('Session expired')) {
+            // Session expired error will be handled by the axios interceptor
+            // which will redirect to the auth page
+            return;
+          }
+          throw error;
+        }
       }
     } catch (error) {
       console.error('Error adding keywords:', error);
       toast({
         title: "Error",
-        description: "Failed to add some keywords",
+        description: error instanceof Error ? error.message : "Failed to add some keywords",
         variant: "destructive"
       });
     }

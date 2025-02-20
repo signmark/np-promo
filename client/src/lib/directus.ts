@@ -2,9 +2,6 @@ import axios from "axios";
 import type { LoginCredentials, Keyword } from "@shared/schema";
 
 const API_URL = "https://directus.nplanner.ru";
-const WORDSTAT_API_URL = "http://xmlriver.com/wordstat/json";
-const WORDSTAT_USER = "16797";
-const WORDSTAT_KEY = "f7947eff83104621deb713275fe3260bfde4f001";
 
 const client = axios.create({
   baseURL: API_URL,
@@ -27,7 +24,8 @@ client.interceptors.response.use(
     console.error('API Error:', error);
     if (error.response?.status === 401) {
       localStorage.removeItem('directus_token');
-      return Promise.reject(new Error('Unauthorized'));
+      window.location.href = '/auth';
+      return Promise.reject(new Error('Session expired. Please login again.'));
     }
     return Promise.reject(error);
   }
@@ -42,7 +40,6 @@ export async function login(credentials: LoginCredentials) {
     if (response.data?.data?.access_token) {
       localStorage.setItem('directus_token', response.data.data.access_token);
 
-      // После успешного логина получаем информацию о пользователе
       const userResponse = await client.get('/users/me');
       const userInfo = userResponse.data.data;
       console.log('User info received:', userInfo);
@@ -130,15 +127,12 @@ export async function addKeyword(keyword: string) {
       throw new Error('User ID not found. Please login again.');
     }
 
-    // Получаем статистику перед добавлением ключевого слова
+    // Get statistics before adding the keyword
     const wordstatData = await getWordstatData(keyword);
     console.log('Received WordStat data:', wordstatData);
 
-    // Вычисляем trend_score на основе последних показов и округляем до целого числа
     const lastShows = wordstatData.response.data.shows.slice(-3);
     const trend_score = Math.round(lastShows.reduce((sum, item) => sum + item.shows, 0) / lastShows.length);
-
-    // Подсчитываем общее количество упоминаний
     const mentions_count = wordstatData.response.data.sources?.reduce((sum, source) => sum + source.count, 0) || 0;
 
     const payload = {
@@ -156,6 +150,10 @@ export async function addKeyword(keyword: string) {
   } catch (error) {
     console.error('Add keyword error:', error);
     if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401) {
+        // Handle 401 specifically
+        throw new Error('Session expired. Please login again.');
+      }
       const errorMessage = error.response?.data?.errors?.[0]?.message || 'Failed to add keyword';
       console.error('Detailed error:', error.response?.data);
       throw new Error(errorMessage);
