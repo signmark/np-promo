@@ -1,23 +1,22 @@
 import axios from "axios";
 import type { LoginCredentials, Keyword, SearchSettings } from "@shared/schema";
-import { predictKeywordTrend } from "./openai";
 import type { KeywordTrend, KeywordWithTrend } from "@shared/schema";
 
 const API_URL = "https://directus.nplanner.ru";
 
 const client = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+ baseURL: API_URL,
+ headers: {
+   'Content-Type': 'application/json'
+ }
 });
 
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem('directus_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+ const token = localStorage.getItem('directus_token');
+ if (token) {
+   config.headers.Authorization = `Bearer ${token}`;
+ }
+ return config;
 });
 
 client.interceptors.response.use(
@@ -328,3 +327,5 @@ export async function getKeywordWithTrendPrediction(keyword: string): Promise<Ke
     throw error;
   }
 }
+
+export { predictKeywordTrend } from './openai';

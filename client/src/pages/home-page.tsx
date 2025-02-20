@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { KeywordTrendIndicator } from "@/components/keyword-trend";
+import { KeywordTrendIndicator, KeywordTrend } from "@/components/keyword-trend";
 
 const addKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword is required"),
@@ -40,6 +40,7 @@ export default function HomePage() {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
   const [selectedKeywords, setSelectedKeywords] = useState<Set<string>>(new Set());
+  const [trendPredictions, setTrendPredictions] = useState<{ [key: string]: KeywordTrend }>({});
 
   const { data: keywords, isLoading } = useQuery({
     queryKey: ["/items/user_keywords"],
@@ -67,10 +68,20 @@ export default function HomePage() {
   });
 
   const predictTrendMutation = useMutation({
-    mutationFn: directus.getKeywordWithTrendPrediction,
+    mutationFn: async (keyword: string) => {
+      const wordstatData = await directus.getWordstatData(keyword);
+      const trendPrediction = await directus.predictKeywordTrend(keyword, {
+        shows: wordstatData.response.data.shows,
+        sources: wordstatData.response.data.sources
+      });
+      setTrendPredictions(prev => ({
+        ...prev,
+        [keyword]: trendPrediction
+      }));
+      return trendPrediction;
+    },
     onSuccess: () => {
       toast({ title: "Trend prediction updated" });
-      queryClient.invalidateQueries({ queryKey: ["/items/user_keywords"] });
     },
     onError: (error: Error) => {
       toast({
@@ -270,53 +281,49 @@ export default function HomePage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {keywords?.map((keyword) => {
-            console.log('Keyword data:', keyword);
-            console.log('Trend prediction:', keyword.trend_prediction);
-            return (
-              <div key={keyword.id}>
-                <div className="flex items-center justify-between p-4 bg-card rounded-lg border">
-                  <div className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-primary" />
-                    <span className="font-medium">{keyword.keyword}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {keyword.trend_score && `${Math.round(keyword.trend_score)} shows`}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => predictTrendMutation.mutate(keyword.keyword)}
-                      disabled={predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword}
-                    >
-                      {predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <TrendingUp className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteKeywordMutation.mutate(keyword.id)}
-                      disabled={deleteKeywordMutation.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+          {keywords?.map((keyword) => (
+            <div key={keyword.id}>
+              <div className="flex items-center justify-between p-4 bg-card rounded-lg border">
+                <div className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span className="font-medium">{keyword.keyword}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {keyword.trend_score && `${Math.round(keyword.trend_score)} shows`}
+                  </span>
                 </div>
-                {keyword.trend_prediction && (
-                  <div className="mt-2">
-                    <KeywordTrendIndicator 
-                      trend={keyword.trend_prediction} 
-                      isLoading={predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword}
-                    />
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => predictTrendMutation.mutate(keyword.keyword)}
+                    disabled={predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword}
+                  >
+                    {predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <TrendingUp className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteKeywordMutation.mutate(keyword.id)}
+                    disabled={deleteKeywordMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            );
-          })}
+              {(trendPredictions[keyword.keyword] || keyword.trend_prediction) && (
+                <div className="mt-2">
+                  <KeywordTrendIndicator
+                    trend={trendPredictions[keyword.keyword] || keyword.trend_prediction!}
+                    isLoading={predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
