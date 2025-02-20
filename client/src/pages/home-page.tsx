@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { useState } from "react";
 
 const addKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword is required"),
@@ -27,6 +28,9 @@ type AddKeywordForm = z.infer<typeof addKeywordSchema>;
 export default function HomePage() {
   const { logout } = useAuth();
   const { toast } = useToast();
+  const [previewKeyword, setPreviewKeyword] = useState("");
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
 
   const { data: keywords, isLoading } = useQuery({
     queryKey: ["/items/user_keywords"],
@@ -37,8 +41,9 @@ export default function HomePage() {
     mutationFn: directus.addKeyword,
     onSuccess: () => {
       form.reset();
+      setPreviewData(null);
+      setPreviewKeyword("");
       toast({ title: "Keyword added successfully" });
-      // Инвалидируем кэш после успешного добавления
       queryClient.invalidateQueries({ queryKey: ["/items/user_keywords"] });
     },
   });
@@ -47,7 +52,6 @@ export default function HomePage() {
     mutationFn: directus.deleteKeyword,
     onSuccess: () => {
       toast({ title: "Keyword deleted successfully" });
-      // Инвалидируем кэш после успешного удаления
       queryClient.invalidateQueries({ queryKey: ["/items/user_keywords"] });
     },
   });
@@ -58,6 +62,32 @@ export default function HomePage() {
       keyword: "",
     },
   });
+
+  const handlePreview = async (keyword: string) => {
+    if (!keyword) return;
+
+    setIsLoadingPreview(true);
+    setPreviewKeyword(keyword);
+    try {
+      const data = await directus.getWordstatData(keyword);
+      setPreviewData(data);
+    } catch (error) {
+      console.error('Preview error:', error);
+      toast({
+        title: "Error loading preview",
+        description: "Failed to load WordStat data",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleKeywordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    form.setValue("keyword", value);
+    handlePreview(value);
+  };
 
   async function onSubmit(data: AddKeywordForm) {
     await addKeywordMutation.mutateAsync(data.keyword);
@@ -78,29 +108,69 @@ export default function HomePage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex gap-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="keyword"
                 render={({ field }) => (
-                  <FormItem className="flex-1">
+                  <FormItem>
                     <FormControl>
-                      <Input placeholder="Enter keyword..." {...field} />
+                      <Input 
+                        placeholder="Enter keyword..." 
+                        {...field} 
+                        onChange={handleKeywordChange}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button
-                type="submit"
-                disabled={addKeywordMutation.isPending}
-              >
-                {addKeywordMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Add"
-                )}
-              </Button>
+
+              {isLoadingPreview && (
+                <div className="flex items-center justify-center p-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              )}
+
+              {previewData && previewKeyword === form.getValues("keyword") && (
+                <Card className="bg-muted">
+                  <CardContent className="pt-4">
+                    <div className="space-y-2">
+                      <div>
+                        <span className="font-medium">Average Shows: </span>
+                        {Math.round(
+                          previewData.response.data.shows
+                            .slice(-3)
+                            .reduce((sum: number, item: any) => sum + item.shows, 0) / 3
+                        )}
+                      </div>
+                      {previewData.response.data.sources && (
+                        <div>
+                          <span className="font-medium">Total Mentions: </span>
+                          {previewData.response.data.sources.reduce(
+                            (sum: number, source: any) => sum + source.count,
+                            0
+                          )}
+                        </div>
+                      )}
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={addKeywordMutation.isPending}
+                      >
+                        {addKeywordMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add to Semantic Core
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </form>
           </Form>
         </CardContent>
