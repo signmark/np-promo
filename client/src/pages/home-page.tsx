@@ -270,49 +270,53 @@ export default function HomePage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {keywords?.map((keyword) => (
-            <div key={keyword.id}>
-              <div className="flex items-center justify-between p-4 bg-card rounded-lg border">
-                <div className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-primary" />
-                  <span className="font-medium">{keyword.keyword}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {keyword.trend_score && `${Math.round(keyword.trend_score)} shows`}
-                  </span>
+          {keywords?.map((keyword) => {
+            console.log('Keyword data:', keyword);
+            console.log('Trend prediction:', keyword.trend_prediction);
+            return (
+              <div key={keyword.id}>
+                <div className="flex items-center justify-between p-4 bg-card rounded-lg border">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-primary" />
+                    <span className="font-medium">{keyword.keyword}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {keyword.trend_score && `${Math.round(keyword.trend_score)} shows`}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => predictTrendMutation.mutate(keyword.keyword)}
+                      disabled={predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword}
+                    >
+                      {predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <TrendingUp className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteKeywordMutation.mutate(keyword.id)}
+                      disabled={deleteKeywordMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => predictTrendMutation.mutate(keyword.keyword)}
-                    disabled={predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword}
-                  >
-                    {predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <TrendingUp className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteKeywordMutation.mutate(keyword.id)}
-                    disabled={deleteKeywordMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                {keyword.trend_prediction && (
+                  <div className="mt-2">
+                    <KeywordTrendIndicator 
+                      trend={keyword.trend_prediction} 
+                      isLoading={predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword}
+                    />
+                  </div>
+                )}
               </div>
-              {keyword.trend_prediction && (
-                <div className="mt-2">
-                  <KeywordTrendIndicator 
-                    trend={keyword.trend_prediction} 
-                    isLoading={predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

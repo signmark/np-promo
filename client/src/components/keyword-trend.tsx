@@ -28,6 +28,12 @@ export function KeywordTrendIndicator({ trend, isLoading = false }: KeywordTrend
     stable: Minus
   }[trend.trend_direction];
 
+  const trendDescription = {
+    up: "Растущий тренд",
+    down: "Падающий тренд",
+    stable: "Стабильный тренд"
+  }[trend.trend_direction];
+
   const trendColor = {
     up: "text-green-500",
     down: "text-red-500",
@@ -39,7 +45,7 @@ export function KeywordTrendIndicator({ trend, isLoading = false }: KeywordTrend
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <TrendIcon className={`h-5 w-5 ${trendColor}`} />
-          Прогноз тренда
+          {trendDescription}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -50,7 +56,7 @@ export function KeywordTrendIndicator({ trend, isLoading = false }: KeywordTrend
           </div>
           <Progress value={trend.growth_potential} />
         </div>
-        
+
         <div>
           <div className="flex justify-between text-sm mb-1">
             <span>Уверенность прогноза</span>
@@ -74,6 +80,10 @@ export function KeywordTrendIndicator({ trend, isLoading = false }: KeywordTrend
             </div>
           </div>
         )}
+
+        <div className="text-xs text-muted-foreground mt-2">
+          Дата прогноза: {new Date(trend.prediction_date).toLocaleDateString()}
+        </div>
       </CardContent>
     </Card>
   );
