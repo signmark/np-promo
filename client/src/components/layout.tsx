@@ -55,7 +55,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
           </SidebarContent>
         </Sidebar>
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto bg-sidebar">
           <div className="md:hidden fixed top-4 left-4 z-50">
             <SidebarTrigger />
           </div>
