@@ -14,11 +14,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Trash2, Plus, Check } from "lucide-react";
+import { Loader2, Trash2, Plus, Check, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { KeywordTrendIndicator } from "@/components/keyword-trend";
 
 const addKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword is required"),
@@ -63,6 +64,21 @@ export default function HomePage() {
       toast({ title: "Keyword deleted successfully" });
       queryClient.invalidateQueries({ queryKey: ["/items/user_keywords"] });
     },
+  });
+
+  const predictTrendMutation = useMutation({
+    mutationFn: directus.getKeywordWithTrendPrediction,
+    onSuccess: () => {
+      toast({ title: "Trend prediction updated" });
+      queryClient.invalidateQueries({ queryKey: ["/items/user_keywords"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to predict trend",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   });
 
   const form = useForm<AddKeywordForm>({
@@ -119,15 +135,12 @@ export default function HomePage() {
 
   async function onSubmit() {
     try {
-      // Add all selected keywords
       for (const keyword of Array.from(selectedKeywords)) {
         try {
           await addKeywordMutation.mutateAsync(keyword);
         } catch (error) {
           if (error instanceof Error) {
             if (error.message.includes('Session expired')) {
-              // Session expired error will be handled by the axios interceptor
-              // which will redirect to the auth page
               return;
             }
             if (error.message.includes('already in your semantic core')) {
@@ -136,7 +149,7 @@ export default function HomePage() {
                 description: `"${keyword}" is already in your semantic core`,
                 variant: "default"
               });
-              continue; // Skip this keyword and continue with others
+              continue;
             }
           }
           throw error;
@@ -256,27 +269,48 @@ export default function HomePage() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-4">
           {keywords?.map((keyword) => (
-            <div
-              key={keyword.id}
-              className="flex items-center justify-between p-4 bg-card rounded-lg border"
-            >
-              <div className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-primary" />
-                <span className="font-medium">{keyword.keyword}</span>
-                <span className="text-sm text-muted-foreground">
-                  {keyword.trend_score && `${Math.round(keyword.trend_score)} shows`}
-                </span>
+            <div key={keyword.id}>
+              <div className="flex items-center justify-between p-4 bg-card rounded-lg border">
+                <div className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span className="font-medium">{keyword.keyword}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {keyword.trend_score && `${Math.round(keyword.trend_score)} shows`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => predictTrendMutation.mutate(keyword.keyword)}
+                    disabled={predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword}
+                  >
+                    {predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <TrendingUp className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteKeywordMutation.mutate(keyword.id)}
+                    disabled={deleteKeywordMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => deleteKeywordMutation.mutate(keyword.id)}
-                disabled={deleteKeywordMutation.isPending}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {keyword.trend_prediction && (
+                <div className="mt-2">
+                  <KeywordTrendIndicator 
+                    trend={keyword.trend_prediction} 
+                    isLoading={predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>
