@@ -4,7 +4,6 @@ import { predictKeywordTrend } from "./openai";
 import type { KeywordTrend, KeywordWithTrend } from "@shared/schema";
 
 const API_URL = "https://directus.nplanner.ru";
-const N8N_WEBHOOK_URL = "https://n8n.nplanner.ru/webhook/4af3f3e9-aeec-4d31-933b-1e6e5ef68f93";
 
 const client = axios.create({
   baseURL: API_URL,
@@ -25,7 +24,7 @@ client.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error('API Error:', error);
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.response?.status === 403) {
       localStorage.removeItem('directus_token');
       window.location.href = '/auth';
       return Promise.reject(new Error('Session expired. Please login again.'));
@@ -283,8 +282,13 @@ export async function generateSearchQuery(keyword: string, settings: SearchSetti
 export async function getKeywordWithTrendPrediction(keyword: string): Promise<KeywordWithTrend> {
   try {
     // First get the existing keyword data
-    const { data } = await client.get<{ data: KeywordWithTrend }>(`/items/user_keywords?filter[keyword][_eq]=${encodeURIComponent(keyword)}`);
-    const keywordData = data.data;
+    const { data: { data: keywords } } = await client.get<{ data: KeywordWithTrend[] }>(`/items/user_keywords?filter[keyword][_eq]=${encodeURIComponent(keyword)}`);
+
+    if (!keywords || keywords.length === 0) {
+      throw new Error('Keyword not found');
+    }
+
+    const keywordData = keywords[0];
 
     // Get historical data from WordStat
     const wordstatData = await getWordstatData(keyword);
@@ -296,17 +300,20 @@ export async function getKeywordWithTrendPrediction(keyword: string): Promise<Ke
     });
 
     // Update the keyword with trend prediction
-    const updatedKeyword = await client.patch<{ data: KeywordWithTrend }>(
+    const { data: { data: updatedKeyword } } = await client.patch<{ data: KeywordWithTrend }>(
       `/items/user_keywords/${keywordData.id}`,
       {
         trend_prediction: trendPrediction
       }
     );
 
-    return updatedKeyword.data.data;
+    return updatedKeyword;
   } catch (error) {
     console.error('Get keyword trend prediction error:', error);
     if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error('Session expired or insufficient permissions. Please login again.');
+      }
       throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to get trend prediction');
     }
     throw error;
