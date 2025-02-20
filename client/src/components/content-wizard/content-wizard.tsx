@@ -1,14 +1,24 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { 
   ArrowRight, 
   ArrowLeft, 
   Share2, 
   Users, 
   Target,
-  MessageSquare 
+  MessageSquare,
+  Play
 } from "lucide-react";
+import { 
+  SiVk, 
+  SiTelegram, 
+  SiYoutube
+} from "react-icons/si";
+
+type Platform = "vkontakte" | "telegram" | "youtube" | "rutube";
 
 type WizardStep = {
   title: string;
@@ -34,8 +44,16 @@ const WIZARD_STEPS: WizardStep[] = [
   }
 ];
 
+const PLATFORMS: { id: Platform; name: string; icon: React.ElementType }[] = [
+  { id: "vkontakte", name: "ВКонтакте", icon: SiVk },
+  { id: "telegram", name: "Telegram", icon: SiTelegram },
+  { id: "youtube", name: "YouTube", icon: SiYoutube },
+  { id: "rutube", name: "Rutube", icon: Play }
+];
+
 export function ContentWizard() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Set<Platform>>(new Set());
 
   const handleNext = () => {
     if (currentStep < WIZARD_STEPS.length - 1) {
@@ -46,6 +64,50 @@ export function ContentWizard() {
   const handleBack = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const togglePlatform = (platform: Platform) => {
+    const newSelection = new Set(selectedPlatforms);
+    if (newSelection.has(platform)) {
+      newSelection.delete(platform);
+    } else {
+      newSelection.add(platform);
+    }
+    setSelectedPlatforms(newSelection);
+  };
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 0:
+        return (
+          <div className="grid grid-cols-2 gap-4">
+            {PLATFORMS.map((platform) => {
+              const Icon = platform.icon;
+              return (
+                <div
+                  key={platform.id}
+                  className="flex items-center space-x-4 p-4 rounded-lg border hover:bg-accent transition-colors cursor-pointer"
+                  onClick={() => togglePlatform(platform.id)}
+                >
+                  <Checkbox
+                    checked={selectedPlatforms.has(platform.id)}
+                    onCheckedChange={() => togglePlatform(platform.id)}
+                  />
+                  <Icon className="w-6 h-6" />
+                  <Label className="cursor-pointer">{platform.name}</Label>
+                </div>
+              );
+            })}
+          </div>
+        );
+      // Other steps will be implemented later
+      default:
+        return (
+          <div className="text-center text-muted-foreground">
+            Этот шаг находится в разработке
+          </div>
+        );
     }
   };
 
@@ -83,14 +145,18 @@ export function ContentWizard() {
           </div>
 
           {/* Step Content */}
-          <div className="min-h-[300px] flex items-center justify-center">
-            <div className="text-center">
+          <div className="min-h-[300px]">
+            <div className="text-center mb-6">
               <h3 className="text-xl font-semibold mb-2">
                 {WIZARD_STEPS[currentStep].title}
               </h3>
               <p className="text-muted-foreground">
                 {WIZARD_STEPS[currentStep].description}
               </p>
+            </div>
+
+            <div className="mt-8">
+              {renderStepContent()}
             </div>
           </div>
 
@@ -106,7 +172,7 @@ export function ContentWizard() {
             </Button>
             <Button
               onClick={handleNext}
-              disabled={currentStep === WIZARD_STEPS.length - 1}
+              disabled={currentStep === WIZARD_STEPS.length - 1 || (currentStep === 0 && selectedPlatforms.size === 0)}
             >
               Далее
               <ArrowRight className="w-4 h-4 ml-2" />
