@@ -134,9 +134,9 @@ export async function addKeyword(keyword: string) {
     const wordstatData = await getWordstatData(keyword);
     console.log('Received WordStat data:', wordstatData);
 
-    // Вычисляем trend_score на основе последних показов
+    // Вычисляем trend_score на основе последних показов и округляем до целого числа
     const lastShows = wordstatData.response.data.shows.slice(-3);
-    const trend_score = lastShows.reduce((sum, item) => sum + item.shows, 0) / lastShows.length;
+    const trend_score = Math.round(lastShows.reduce((sum, item) => sum + item.shows, 0) / lastShows.length);
 
     // Подсчитываем общее количество упоминаний
     const mentions_count = wordstatData.response.data.sources?.reduce((sum, source) => sum + source.count, 0) || 0;
