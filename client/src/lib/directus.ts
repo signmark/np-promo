@@ -80,7 +80,12 @@ export async function getUserInfo() {
 
 export async function getKeywords() {
   try {
-    const { data } = await client.get<{ data: Keyword[] }>('/items/user_keywords?sort=-id');
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+      throw new Error('User ID not found. Please login again.');
+    }
+
+    const { data } = await client.get<{ data: Keyword[] }>(`/items/user_keywords?sort=-id&filter[user_id][_eq]=${userId}`);
     return data.data;
   } catch (error) {
     console.error('Get keywords error:', error);
