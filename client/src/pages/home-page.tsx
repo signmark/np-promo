@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 const addKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword is required"),
@@ -37,6 +38,8 @@ export default function HomePage() {
     onSuccess: () => {
       form.reset();
       toast({ title: "Keyword added successfully" });
+      // Инвалидируем кэш после успешного добавления
+      queryClient.invalidateQueries({ queryKey: ["/items/user_keywords"] });
     },
   });
 
@@ -44,6 +47,8 @@ export default function HomePage() {
     mutationFn: directus.deleteKeyword,
     onSuccess: () => {
       toast({ title: "Keyword deleted successfully" });
+      // Инвалидируем кэш после успешного удаления
+      queryClient.invalidateQueries({ queryKey: ["/items/user_keywords"] });
     },
   });
 
