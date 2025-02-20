@@ -24,7 +24,6 @@ client.interceptors.response.use(
     console.error('API Error:', error);
     if (error.response?.status === 401) {
       localStorage.removeItem('directus_token');
-      // Remove direct navigation, let React handle it
       return Promise.reject(new Error('Unauthorized'));
     }
     return Promise.reject(error);
@@ -39,6 +38,11 @@ export async function login(credentials: LoginCredentials) {
 
     if (response.data?.data?.access_token) {
       localStorage.setItem('directus_token', response.data.data.access_token);
+
+      // После успешного логина получаем информацию о пользователе
+      const userInfo = await getUserInfo();
+      localStorage.setItem('user_id', userInfo.id);
+
       return response.data.data;
     } else {
       throw new Error('Invalid response format');
@@ -48,6 +52,19 @@ export async function login(credentials: LoginCredentials) {
     if (axios.isAxiosError(error)) {
       const message = error.response?.data?.errors?.[0]?.message || 'Failed to login';
       throw new Error(message);
+    }
+    throw error;
+  }
+}
+
+export async function getUserInfo() {
+  try {
+    const response = await client.get('/users/me');
+    return response.data.data;
+  } catch (error) {
+    console.error('Get user info error:', error);
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to get user info');
     }
     throw error;
   }
@@ -68,8 +85,10 @@ export async function getKeywords() {
 
 export async function addKeyword(keyword: string) {
   try {
+    const userId = localStorage.getItem('user_id');
     const { data } = await client.post<{ data: Keyword }>('/items/user_keywords', {
-      keyword
+      keyword,
+      user_created: userId
     });
     return data.data;
   } catch (error) {
