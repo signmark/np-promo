@@ -19,8 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-//import { KeywordTrendIndicator, KeywordTrend } from "@/components/keyword-trend";
 import { AnimatedTrend } from "@/components/animated-trend";
+import { ContentWizard } from "@/components/content-wizard/content-wizard"; // Added import
 
 const addKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword is required"),
