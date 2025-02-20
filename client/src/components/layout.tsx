@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Settings, Home } from "lucide-react";
+import { Settings, Home, Menu } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -8,6 +8,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarProvider,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -17,8 +18,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen">
         <Sidebar>
-          <SidebarHeader className="p-4">
+          <SidebarHeader className="flex items-center justify-between p-4">
             <div className="text-xl font-bold text-primary">SEO Tools</div>
+            <div className="md:hidden">
+              <SidebarTrigger>
+                <Menu className="h-6 w-6" />
+              </SidebarTrigger>
+            </div>
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
