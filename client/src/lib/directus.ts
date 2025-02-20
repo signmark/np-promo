@@ -41,6 +41,7 @@ export async function login(credentials: LoginCredentials) {
 
       // После успешного логина получаем информацию о пользователе
       const userInfo = await getUserInfo();
+      console.log('User info received:', userInfo);
       localStorage.setItem('user_id', userInfo.id);
 
       return response.data.data;
@@ -86,15 +87,22 @@ export async function getKeywords() {
 export async function addKeyword(keyword: string) {
   try {
     const userId = localStorage.getItem('user_id');
-    const { data } = await client.post<{ data: Keyword }>('/items/user_keywords', {
+    console.log('Adding keyword with user_id:', userId);
+
+    const payload = {
       keyword,
       user_created: userId
-    });
+    };
+    console.log('Request payload:', payload);
+
+    const { data } = await client.post<{ data: Keyword }>('/items/user_keywords', payload);
     return data.data;
   } catch (error) {
     console.error('Add keyword error:', error);
     if (axios.isAxiosError(error)) {
-      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to add keyword');
+      const errorMessage = error.response?.data?.errors?.[0]?.message || 'Failed to add keyword';
+      console.error('Detailed error:', error.response?.data);
+      throw new Error(errorMessage);
     }
     throw error;
   }
