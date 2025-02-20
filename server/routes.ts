@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import fetch from "node-fetch";
+import { wordstatResponseSchema } from "@shared/schema";
 
 const WORDSTAT_API_URL = "http://xmlriver.com/wordstat/json";
 const WORDSTAT_USER = "16797";
@@ -16,19 +17,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Keyword is required' });
       }
 
+      console.log('Fetching WordStat data for keyword:', keyword);
+
       const params = new URLSearchParams({
         user: WORDSTAT_USER,
         key: WORDSTAT_KEY,
         query: keyword
       });
 
-      const response = await fetch(`${WORDSTAT_API_URL}?${params.toString()}`);
+      const apiUrl = `${WORDSTAT_API_URL}?${params.toString()}`;
+      console.log('Making request to:', apiUrl);
+
+      const response = await fetch(apiUrl);
       const data = await response.json();
 
-      res.json(data);
+      console.log('WordStat API response:', JSON.stringify(data, null, 2));
+
+      // Валидируем ответ через схему
+      const validatedData = wordstatResponseSchema.parse(data);
+      res.json(validatedData);
     } catch (error) {
       console.error('WordStat API error:', error);
-      res.status(500).json({ error: 'Failed to fetch data from WordStat' });
+      res.status(500).json({ 
+        error: 'Failed to fetch data from WordStat',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 

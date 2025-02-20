@@ -103,55 +103,18 @@ interface WordstatResponse {
   };
 }
 
-const wordstatResponseSchema = {
-  type: "object",
-  properties: {
-    response: {
-      type: "object",
-      properties: {
-        data: {
-          type: "object",
-          properties: {
-            shows: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  shows: { type: "number" }
-                },
-                required: ["shows"]
-              }
-            },
-            sources: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  count: { type: "number" }
-                },
-                required: ["count"]
-              }
-            }
-          },
-          required: ["shows"]
-        }
-      },
-      required: ["data"]
-    }
-  },
-  required: ["response"]
-};
-
 
 export async function getWordstatData(keyword: string): Promise<WordstatResponse> {
   try {
     const response = await fetch(`/api/wordstat?keyword=${encodeURIComponent(keyword)}`);
     if (!response.ok) {
-      throw new Error('Failed to fetch wordstat data');
+      const errorData = await response.json();
+      throw new Error(errorData.details || 'Failed to fetch wordstat data');
     }
 
     const data = await response.json();
-    return wordstatResponseSchema.parse(data);
+    console.log('WordStat data received:', data);
+    return data;
   } catch (error) {
     console.error('Wordstat API error:', error);
     throw error;
@@ -169,6 +132,7 @@ export async function addKeyword(keyword: string) {
 
     // Получаем статистику перед добавлением ключевого слова
     const wordstatData = await getWordstatData(keyword);
+    console.log('Received WordStat data:', wordstatData);
 
     // Вычисляем trend_score на основе последних показов
     const lastShows = wordstatData.response.data.shows.slice(-3);
