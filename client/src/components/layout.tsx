@@ -3,6 +3,7 @@ import { Settings, Home } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
@@ -16,6 +17,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen">
         <Sidebar>
+          <SidebarHeader className="p-4">
+            <div className="text-xl font-bold text-primary">SEO Tools</div>
+          </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
               <SidebarMenuItem>
