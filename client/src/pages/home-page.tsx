@@ -14,10 +14,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Trash2, Plus } from "lucide-react";
+import { Loader2, Trash2, Plus, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const addKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword is required"),
@@ -25,12 +26,19 @@ const addKeywordSchema = z.object({
 
 type AddKeywordForm = z.infer<typeof addKeywordSchema>;
 
+interface RelatedKeyword {
+  phrase: string;
+  number: string;
+  isSelected?: boolean;
+}
+
 export default function HomePage() {
   const { logout } = useAuth();
   const { toast } = useToast();
   const [previewKeyword, setPreviewKeyword] = useState("");
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
+  const [selectedKeywords, setSelectedKeywords] = useState<Set<string>>(new Set());
 
   const { data: keywords, isLoading } = useQuery({
     queryKey: ["/items/user_keywords"],
@@ -43,7 +51,8 @@ export default function HomePage() {
       form.reset();
       setPreviewData(null);
       setPreviewKeyword("");
-      toast({ title: "Keyword added successfully" });
+      setSelectedKeywords(new Set());
+      toast({ title: "Keywords added successfully" });
       queryClient.invalidateQueries({ queryKey: ["/items/user_keywords"] });
     },
   });
@@ -89,8 +98,30 @@ export default function HomePage() {
     handlePreview(value);
   };
 
-  async function onSubmit(data: AddKeywordForm) {
-    await addKeywordMutation.mutateAsync(data.keyword);
+  const toggleKeyword = (phrase: string) => {
+    const newSelected = new Set(selectedKeywords);
+    if (newSelected.has(phrase)) {
+      newSelected.delete(phrase);
+    } else {
+      newSelected.add(phrase);
+    }
+    setSelectedKeywords(newSelected);
+  };
+
+  async function onSubmit() {
+    try {
+      // Add all selected keywords
+      for (const keyword of selectedKeywords) {
+        await addKeywordMutation.mutateAsync(keyword);
+      }
+    } catch (error) {
+      console.error('Error adding keywords:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add some keywords",
+        variant: "destructive"
+      });
+    }
   }
 
   return (
@@ -104,7 +135,7 @@ export default function HomePage() {
 
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>Add New Keyword</CardTitle>
+          <CardTitle>Search Keywords</CardTitle>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -136,52 +167,52 @@ export default function HomePage() {
                 <Card className="bg-muted">
                   <CardContent className="pt-4">
                     <div className="space-y-4">
-                      <div>
-                        <span className="font-medium">Average Shows: </span>
-                        {Math.round(
+                      <div className="flex justify-between text-sm text-muted-foreground mb-4">
+                        <span>Average Shows: {Math.round(
                           previewData.response.data.shows
                             .slice(-3)
                             .reduce((sum: number, item: any) => sum + item.shows, 0) / 3
-                        )}
+                        )}</span>
+                        <span>Total Mentions: {previewData.response.data.sources?.reduce(
+                          (sum: number, source: any) => sum + source.count,
+                          0
+                        )}</span>
                       </div>
-                      {previewData.response.data.sources && (
-                        <div>
-                          <span className="font-medium">Total Mentions: </span>
-                          {previewData.response.data.sources.reduce(
-                            (sum: number, source: any) => sum + source.count,
-                            0
-                          )}
-                        </div>
-                      )}
 
-                      <div className="mt-4">
-                        <h3 className="font-medium mb-2">Related Keywords:</h3>
-                        <div className="max-h-60 overflow-y-auto">
-                          <div className="space-y-2">
-                            {previewData.content?.includingPhrases?.items?.map((item: any, index: number) => (
-                              <div key={index} className="flex justify-between items-center p-2 bg-background rounded">
-                                <span>{item.phrase}</span>
-                                <span className="text-muted-foreground">{item.number}</span>
-                              </div>
-                            ))}
+                      <div className="space-y-2">
+                        {previewData.content?.includingPhrases?.items?.map((item: RelatedKeyword, index: number) => (
+                          <div 
+                            key={index} 
+                            className="flex items-center justify-between p-3 bg-background rounded hover:bg-accent/5"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Checkbox
+                                checked={selectedKeywords.has(item.phrase)}
+                                onCheckedChange={() => toggleKeyword(item.phrase)}
+                              />
+                              <span>{item.phrase}</span>
+                            </div>
+                            <span className="text-muted-foreground">{item.number}</span>
                           </div>
-                        </div>
+                        ))}
                       </div>
 
-                      <Button
-                        type="submit"
-                        className="w-full mt-4"
-                        disabled={addKeywordMutation.isPending}
-                      >
-                        {addKeywordMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add to Semantic Core
-                          </>
-                        )}
-                      </Button>
+                      {selectedKeywords.size > 0 && (
+                        <Button
+                          type="submit"
+                          className="w-full mt-4"
+                          disabled={addKeywordMutation.isPending}
+                        >
+                          {addKeywordMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add {selectedKeywords.size} Keywords to Semantic Core
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -196,22 +227,18 @@ export default function HomePage() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="space-y-2">
           {keywords?.map((keyword) => (
             <div
               key={keyword.id}
               className="flex items-center justify-between p-4 bg-card rounded-lg border"
             >
-              <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-primary" />
                 <span className="font-medium">{keyword.keyword}</span>
-                <div className="text-sm text-muted-foreground mt-1">
-                  {keyword.trend_score && (
-                    <span className="mr-4">Показы: {Math.round(keyword.trend_score)}</span>
-                  )}
-                  {keyword.mentions_count !== undefined && (
-                    <span>Упоминания: {keyword.mentions_count}</span>
-                  )}
-                </div>
+                <span className="text-sm text-muted-foreground">
+                  {keyword.trend_score && `${Math.round(keyword.trend_score)} shows`}
+                </span>
               </div>
               <Button
                 variant="ghost"
