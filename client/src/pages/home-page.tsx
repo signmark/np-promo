@@ -41,7 +41,9 @@ export default function HomePage() {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
   const [selectedKeywords, setSelectedKeywords] = useState<Set<string>>(new Set());
-  const [trendPredictions, setTrendPredictions] = useState<{ [key: string]: any }>({});
+  const [trendPredictions, setTrendPredictions] = useState<{ 
+    [key: string]: { prediction: any; historicalData: Array<{ shows: number }> } 
+  }>({});
 
   const { data: keywords, isLoading } = useQuery({
     queryKey: ["/items/user_keywords"],
@@ -77,7 +79,10 @@ export default function HomePage() {
       });
       setTrendPredictions(prev => ({
         ...prev,
-        [keyword]: trendPrediction
+        [keyword]: {
+          prediction: trendPrediction,
+          historicalData: wordstatData.response.data.shows
+        }
       }));
       return { prediction: trendPrediction, historicalData: wordstatData.response.data.shows };
     },
@@ -318,8 +323,8 @@ export default function HomePage() {
               {(trendPredictions[keyword.keyword] || keyword.trend_prediction) && (
                 <div className="mt-2">
                   <AnimatedTrend
-                    trend={trendPredictions[keyword.keyword] || keyword.trend_prediction!}
-                    historicalData={previewData?.response?.data?.shows || []}
+                    trend={trendPredictions[keyword.keyword]?.prediction || keyword.trend_prediction!}
+                    historicalData={trendPredictions[keyword.keyword]?.historicalData || []}
                   />
                 </div>
               )}
