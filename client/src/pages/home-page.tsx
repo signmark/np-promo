@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Trash2, Plus, Check, TrendingUp } from "lucide-react";
+import { Loader2, Trash2, Plus, Check, TrendingUp, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useState } from "react";
@@ -41,9 +41,10 @@ export default function HomePage() {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
   const [selectedKeywords, setSelectedKeywords] = useState<Set<string>>(new Set());
-  const [trendPredictions, setTrendPredictions] = useState<{ 
-    [key: string]: { prediction: any; historicalData: Array<{ shows: number }> } 
+  const [trendPredictions, setTrendPredictions] = useState<{
+    [key: string]: { prediction: any; historicalData: Array<{ shows: number }> }
   }>({});
+  const [showContentWizard, setShowContentWizard] = useState(false); // Added state
 
   const { data: keywords, isLoading } = useQuery({
     queryKey: ["/items/user_keywords"],
@@ -186,10 +187,22 @@ export default function HomePage() {
     <div className="container mx-auto p-8 max-w-4xl">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Keywords</h1>
-        <Button variant="outline" onClick={logout}>
-          Sign Out
-        </Button>
+        <div className="flex gap-4"> {/* Added div for button grouping */}
+          <Button variant="outline" onClick={logout}>
+            Sign Out
+          </Button>
+          <Button onClick={() => setShowContentWizard(true)}>
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Создать контент
+          </Button>
+        </div>
       </div>
+
+      {showContentWizard && (
+        <div className="mb-8">
+          <ContentWizard /> {/* Assumed ContentWizard component exists */}
+        </div>
+      )}
 
       <Card className="mb-8">
         <CardHeader>
