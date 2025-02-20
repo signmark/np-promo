@@ -15,9 +15,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
+import { useEffect } from "react";
 
 export default function AuthPage() {
-  const { loginMutation } = useAuth();
+  const { loginMutation, isAuthenticated } = useAuth();
   const [_, setLocation] = useLocation();
 
   const form = useForm<LoginCredentials>({
@@ -28,9 +29,21 @@ export default function AuthPage() {
     },
   });
 
+  useEffect(() => {
+    // Если пользователь уже авторизован, перенаправляем на главную
+    if (isAuthenticated) {
+      setLocation("/");
+    }
+  }, [isAuthenticated, setLocation]);
+
   async function onSubmit(data: LoginCredentials) {
-    await loginMutation.mutateAsync(data);
-    setLocation("/");
+    try {
+      await loginMutation.mutateAsync(data);
+      setLocation("/");
+    } catch (error) {
+      // Ошибки уже обрабатываются в loginMutation
+      console.error("Login failed:", error);
+    }
   }
 
   return (
