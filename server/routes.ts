@@ -33,9 +33,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('WordStat API response:', JSON.stringify(data, null, 2));
 
-      // Валидируем ответ через схему
-      const validatedData = wordstatResponseSchema.parse(data);
-      res.json(validatedData);
+      // Обработка данных из WordStat
+      const inputData = data.content?.includingPhrases?.items || [];
+
+      if (inputData.length === 0) {
+        return res.json({ 
+          response: { 
+            data: { 
+              shows: [], 
+              sources: [] 
+            } 
+          } 
+        });
+      }
+
+      // Преобразуем данные в нужный формат
+      const processedData = inputData.map(item => ({
+        phrase: item.phrase,
+        shows: parseInt(item.number.replace(/\s/g, ''), 10)
+      }));
+
+      // Формируем ответ в нужном формате
+      const formattedResponse = {
+        response: {
+          data: {
+            shows: processedData.map(item => ({ shows: item.shows })),
+            sources: processedData.map(item => ({ count: item.shows }))
+          }
+        }
+      };
+
+      res.json(formattedResponse);
     } catch (error) {
       console.error('WordStat API error:', error);
       res.status(500).json({ 

@@ -15,15 +15,11 @@ export const keywordSchema = z.object({
 
 export const wordstatResponseSchema = z.object({
   response: z.object({
-    status: z.string(),
     data: z.object({
       shows: z.array(z.object({
-        year: z.number(),
-        month: z.number(),
         shows: z.number()
       })),
       sources: z.array(z.object({
-        source: z.string(),
         count: z.number()
       })).optional()
     })
