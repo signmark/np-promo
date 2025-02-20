@@ -40,9 +40,16 @@ export async function login(credentials: LoginCredentials) {
       localStorage.setItem('directus_token', response.data.data.access_token);
 
       // После успешного логина получаем информацию о пользователе
-      const userInfo = await getUserInfo();
+      const userResponse = await client.get('/users/me');
+      const userInfo = userResponse.data.data;
       console.log('User info received:', userInfo);
-      localStorage.setItem('user_id', userInfo.id);
+
+      if (userInfo.id) {
+        localStorage.setItem('user_id', userInfo.id);
+        console.log('Saved user_id:', userInfo.id);
+      } else {
+        console.error('No user id in response:', userInfo);
+      }
 
       return response.data.data;
     } else {
@@ -89,14 +96,19 @@ export async function addKeyword(keyword: string) {
     const userId = localStorage.getItem('user_id');
     console.log('Adding keyword with user_id:', userId);
 
+    if (!userId) {
+      throw new Error('User ID not found. Please login again.');
+    }
+
     const payload = {
-      keyword,
       user_id: userId,
+      keyword: keyword,
       type: "main"
     };
     console.log('Request payload:', payload);
 
     const { data } = await client.post<{ data: Keyword }>('/items/user_keywords', payload);
+    console.log('Add keyword response:', data);
     return data.data;
   } catch (error) {
     console.error('Add keyword error:', error);
