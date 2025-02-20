@@ -19,7 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { KeywordTrendIndicator, KeywordTrend } from "@/components/keyword-trend";
+//import { KeywordTrendIndicator, KeywordTrend } from "@/components/keyword-trend";
+import { AnimatedTrend } from "@/components/animated-trend";
 
 const addKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword is required"),
@@ -40,7 +41,7 @@ export default function HomePage() {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
   const [selectedKeywords, setSelectedKeywords] = useState<Set<string>>(new Set());
-  const [trendPredictions, setTrendPredictions] = useState<{ [key: string]: KeywordTrend }>({});
+  const [trendPredictions, setTrendPredictions] = useState<{ [key: string]: any }>({});
 
   const { data: keywords, isLoading } = useQuery({
     queryKey: ["/items/user_keywords"],
@@ -316,8 +317,9 @@ export default function HomePage() {
               </div>
               {(trendPredictions[keyword.keyword] || keyword.trend_prediction) && (
                 <div className="mt-2">
-                  <KeywordTrendIndicator
+                  <AnimatedTrend
                     trend={trendPredictions[keyword.keyword] || keyword.trend_prediction!}
+                    historicalData={previewData?.response?.data?.shows || []}
                     isLoading={predictTrendMutation.isPending && predictTrendMutation.variables === keyword.keyword}
                   />
                 </div>
