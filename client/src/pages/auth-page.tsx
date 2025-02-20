@@ -29,8 +29,8 @@ export default function AuthPage() {
     },
   });
 
+  // Redirect to home if already authenticated
   useEffect(() => {
-    // Если пользователь уже авторизован, перенаправляем на главную
     if (isAuthenticated) {
       setLocation("/");
     }
@@ -38,10 +38,12 @@ export default function AuthPage() {
 
   async function onSubmit(data: LoginCredentials) {
     try {
-      await loginMutation.mutateAsync(data);
-      setLocation("/");
+      const result = await loginMutation.mutateAsync(data);
+      if (result) {
+        // Only navigate if login was successful
+        setLocation("/");
+      }
     } catch (error) {
-      // Ошибки уже обрабатываются в loginMutation
       console.error("Login failed:", error);
     }
   }

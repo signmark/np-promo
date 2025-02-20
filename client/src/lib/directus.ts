@@ -24,7 +24,8 @@ client.interceptors.response.use(
     console.error('API Error:', error);
     if (error.response?.status === 401) {
       localStorage.removeItem('directus_token');
-      window.location.href = '/auth';
+      // Remove direct navigation, let React handle it
+      return Promise.reject(new Error('Unauthorized'));
     }
     return Promise.reject(error);
   }
