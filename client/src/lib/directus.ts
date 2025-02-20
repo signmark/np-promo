@@ -1,7 +1,8 @@
 import axios from "axios";
-import type { LoginCredentials, Keyword } from "@shared/schema";
+import type { LoginCredentials, Keyword, SearchSettings } from "@shared/schema";
 
 const API_URL = "https://directus.nplanner.ru";
+const N8N_WEBHOOK_URL = "https://n8n.nplanner.ru/webhook/4af3f3e9-aeec-4d31-933b-1e6e5ef68f93";
 
 const client = axios.create({
   baseURL: API_URL,
@@ -105,7 +106,6 @@ interface WordstatResponse {
   };
 }
 
-
 export async function getWordstatData(keyword: string): Promise<WordstatResponse> {
   try {
     const response = await fetch(`/api/wordstat?keyword=${encodeURIComponent(keyword)}`);
@@ -191,5 +191,87 @@ export async function deleteKeyword(id: string) {
       throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to delete keyword');
     }
     throw error;
+  }
+}
+
+// Search Settings
+export async function getSearchSettings() {
+  try {
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+      throw new Error('User ID not found. Please login again.');
+    }
+
+    const { data } = await client.get<{ data: SearchSettings[] }>(`/items/search_settings?filter[user_id][_eq]=${userId}`);
+    return data.data[0];
+  } catch (error) {
+    console.error('Get search settings error:', error);
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to fetch search settings');
+    }
+    throw error;
+  }
+}
+
+export async function saveSearchSettings(settings: SearchSettings) {
+  try {
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+      throw new Error('User ID not found. Please login again.');
+    }
+
+    // Check if settings already exist
+    const existingSettings = await getSearchSettings();
+
+    if (existingSettings) {
+      const { data } = await client.patch<{ data: SearchSettings }>(
+        `/items/search_settings/${existingSettings.id}`,
+        settings
+      );
+      return data.data;
+    } else {
+      const { data } = await client.post<{ data: SearchSettings }>(
+        '/items/search_settings',
+        settings
+      );
+      return data.data;
+    }
+  } catch (error) {
+    console.error('Save search settings error:', error);
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to save search settings');
+    }
+    throw error;
+  }
+}
+
+// Search query generation via n8n webhook
+export async function generateSearchQuery(keyword: string, settings: SearchSettings) {
+  try {
+    const token = localStorage.getItem('directus_token');
+    if (!token) {
+      throw new Error('Authentication token not found. Please login again.');
+    }
+
+    const response = await fetch(N8N_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        jwt_token: token,
+        keyword: keyword
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to generate search queries');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('N8N webhook error:', error);
+    throw new Error('Failed to generate search queries');
   }
 }
