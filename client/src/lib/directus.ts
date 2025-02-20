@@ -143,16 +143,9 @@ const wordstatResponseSchema = {
 };
 
 
-
 export async function getWordstatData(keyword: string): Promise<WordstatResponse> {
   try {
-    const params = new URLSearchParams({
-      user: WORDSTAT_USER,
-      key: WORDSTAT_KEY,
-      query: keyword
-    });
-
-    const response = await fetch(`${WORDSTAT_API_URL}?${params.toString()}`);
+    const response = await fetch(`/api/wordstat?keyword=${encodeURIComponent(keyword)}`);
     if (!response.ok) {
       throw new Error('Failed to fetch wordstat data');
     }
