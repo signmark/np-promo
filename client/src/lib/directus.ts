@@ -2,6 +2,9 @@ import axios from "axios";
 import type { LoginCredentials, Keyword } from "@shared/schema";
 
 const API_URL = "https://directus.nplanner.ru";
+const WORDSTAT_API_URL = "http://xmlriver.com/wordstat/json";
+const WORDSTAT_USER = "16797";
+const WORDSTAT_KEY = "f7947eff83104621deb713275fe3260bfde4f001";
 
 const client = axios.create({
   baseURL: API_URL,
@@ -91,6 +94,77 @@ export async function getKeywords() {
   }
 }
 
+interface WordstatResponse {
+  response: {
+    data: {
+      shows: { shows: number }[];
+      sources?: { count: number }[];
+    };
+  };
+}
+
+const wordstatResponseSchema = {
+  type: "object",
+  properties: {
+    response: {
+      type: "object",
+      properties: {
+        data: {
+          type: "object",
+          properties: {
+            shows: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  shows: { type: "number" }
+                },
+                required: ["shows"]
+              }
+            },
+            sources: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  count: { type: "number" }
+                },
+                required: ["count"]
+              }
+            }
+          },
+          required: ["shows"]
+        }
+      },
+      required: ["data"]
+    }
+  },
+  required: ["response"]
+};
+
+
+
+export async function getWordstatData(keyword: string): Promise<WordstatResponse> {
+  try {
+    const params = new URLSearchParams({
+      user: WORDSTAT_USER,
+      key: WORDSTAT_KEY,
+      query: keyword
+    });
+
+    const response = await fetch(`${WORDSTAT_API_URL}?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch wordstat data');
+    }
+
+    const data = await response.json();
+    return wordstatResponseSchema.parse(data);
+  } catch (error) {
+    console.error('Wordstat API error:', error);
+    throw error;
+  }
+}
+
 export async function addKeyword(keyword: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -100,10 +174,22 @@ export async function addKeyword(keyword: string) {
       throw new Error('User ID not found. Please login again.');
     }
 
+    // Получаем статистику перед добавлением ключевого слова
+    const wordstatData = await getWordstatData(keyword);
+
+    // Вычисляем trend_score на основе последних показов
+    const lastShows = wordstatData.response.data.shows.slice(-3);
+    const trend_score = lastShows.reduce((sum, item) => sum + item.shows, 0) / lastShows.length;
+
+    // Подсчитываем общее количество упоминаний
+    const mentions_count = wordstatData.response.data.sources?.reduce((sum, source) => sum + source.count, 0) || 0;
+
     const payload = {
       user_id: userId,
       keyword: keyword,
-      type: "main"
+      type: "main",
+      trend_score,
+      mentions_count
     };
     console.log('Request payload:', payload);
 

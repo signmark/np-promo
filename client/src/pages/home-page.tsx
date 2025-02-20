@@ -117,7 +117,17 @@ export default function HomePage() {
               key={keyword.id}
               className="flex items-center justify-between p-4 bg-card rounded-lg border"
             >
-              <span>{keyword.keyword}</span>
+              <div className="flex flex-col">
+                <span className="font-medium">{keyword.keyword}</span>
+                <div className="text-sm text-muted-foreground mt-1">
+                  {keyword.trend_score && (
+                    <span className="mr-4">Показы: {Math.round(keyword.trend_score)}</span>
+                  )}
+                  {keyword.mentions_count !== undefined && (
+                    <span>Упоминания: {keyword.mentions_count}</span>
+                  )}
+                </div>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
