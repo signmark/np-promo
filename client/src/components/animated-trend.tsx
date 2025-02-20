@@ -137,25 +137,38 @@ export function AnimatedTrend({ trend, historicalData }: AnimatedTrendProps) {
             {/* Seasonality tags */}
             {trend.seasonality && trend.seasonality.length > 0 && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.6 }}
+                initial={{ opacity: 0 }}
+                animate={{ 
+                  opacity: 1,
+                  transition: { duration: 0.3, delay: 1 }
+                }}
                 className="bg-muted/50 p-4 rounded-lg"
               >
-                <h4 className="text-sm font-medium mb-2">Сезонность:</h4>
+                <motion.h4 
+                  className="text-sm font-medium mb-3"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 1.1 }}
+                >
+                  Сезонность:
+                </motion.h4>
                 <div className="flex flex-wrap gap-2">
                   {trend.seasonality.map((season, index) => (
                     <motion.span
                       key={index}
-                      className="inline-flex items-center rounded-full bg-background border px-2.5 py-0.5 text-xs font-medium"
-                      initial={{ opacity: 0, scale: 0.5, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      className="inline-flex items-center rounded-full bg-background border px-3 py-1 text-xs font-medium shadow-sm hover:bg-accent transition-colors"
+                      initial={{ opacity: 0, scale: 0.5, x: -20 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
                       transition={{
-                        duration: 0.4,
-                        delay: 1 + index * 0.15,
                         type: "spring",
-                        stiffness: 200,
-                        damping: 15
+                        stiffness: 500,
+                        damping: 25,
+                        delay: 1.2 + index * 0.2,
+                        duration: 0.5
+                      }}
+                      whileHover={{ 
+                        scale: 1.05,
+                        transition: { duration: 0.2 }
                       }}
                     >
                       {season}
