@@ -123,7 +123,7 @@ export async function getUserInfo() {
   }
 }
 
-// В функции getKeywords обновляем фильтр для корректной работы со связями
+// Modify getKeywords function to handle permissions and relationships properly
 export async function getKeywords(campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -133,19 +133,12 @@ export async function getKeywords(campaignId?: string) {
 
     console.log('Fetching keywords for user:', userId, 'campaign:', campaignId);
 
+    // First get all keywords for the user
     let url = `/items/user_keywords?filter[user_id][_eq]=${userId}`;
 
     if (campaignId) {
-      // Fetch keywords that have a relationship with the specified campaign
-      const relationResponse = await client.get(`/items/user_keywords_campaigns?filter[campaign_id][_eq]=${campaignId}`);
-      const keywordIds = relationResponse.data.data.map((rel: any) => rel.keyword_id);
-
-      if (keywordIds.length > 0) {
-        url += `&filter[id][_in]=${keywordIds.join(',')}`;
-      } else {
-        // If no relationships found, return empty array
-        return [];
-      }
+      // Get related keywords through the junction table
+      url += `&filter[keywords_campaigns][campaign_id][_eq]=${campaignId}`;
     }
 
     console.log('Request URL:', url);
@@ -228,7 +221,7 @@ export async function checkKeywordExists(keyword: string): Promise<boolean> {
   }
 }
 
-// В функции addKeyword обновляем payload для создания связей
+// Modify addKeyword function to handle relationships properly
 export async function addKeyword(keyword: string, campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -238,7 +231,7 @@ export async function addKeyword(keyword: string, campaignId?: string) {
       throw new Error('User ID not found. Please login again.');
     }
 
-    // Получаем статистику перед добавлением ключевого слова
+    // Get WordStat data first
     const wordstatData = await getWordstatData(keyword);
     console.log('Received WordStat data:', wordstatData);
 
@@ -246,7 +239,7 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     const trend_score = Math.round(lastShows.reduce((sum, item) => sum + item.shows, 0) / lastShows.length);
     const mentions_count = wordstatData.response.data.sources?.reduce((sum, source) => sum + source.count, 0) || 0;
 
-    // First create the keyword
+    // Create keyword first
     const keywordPayload = {
       user_id: userId,
       keyword: keyword,
@@ -256,22 +249,22 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     };
 
     console.log('Creating keyword with payload:', keywordPayload);
-    const { data: keywordData } = await client.post('/items/user_keywords', keywordPayload);
-    console.log('Keyword created:', keywordData);
+    const keywordResponse = await client.post('/items/user_keywords', keywordPayload);
+    const newKeyword = keywordResponse.data.data;
+    console.log('Keyword created:', newKeyword);
 
-    // If campaignId is provided, create the relationship
-    if (campaignId && keywordData.data.id) {
+    // If campaignId is provided, create the relationship separately
+    if (campaignId && newKeyword.id) {
       const relationPayload = {
-        keyword_id: keywordData.data.id,
+        keyword_id: newKeyword.id,
         campaign_id: campaignId
       };
 
       console.log('Creating relationship with payload:', relationPayload);
       await client.post('/items/user_keywords_campaigns', relationPayload);
-      console.log('Relationship created successfully');
     }
 
-    return keywordData.data;
+    return newKeyword;
   } catch (error) {
     console.error('Add keyword error:', error);
     if (axios.isAxiosError(error)) {
