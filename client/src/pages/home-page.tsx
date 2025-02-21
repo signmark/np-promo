@@ -35,16 +35,11 @@ const addKeywordSchema = z.object({
 const TOTAL_STEPS = 2; // Campaigns and Keywords tabs
 
 export default function HomePage() {
-  const { user } = useAuth(); // Add auth check
+  const { user } = useAuth();
   const { toast } = useToast();
   const [selectedCampaign, setSelectedCampaign] = useState("");
   const [activeTab, setActiveTab] = useState("campaigns");
   const [trendPredictions, setTrendPredictions] = useState<Record<string, any>>({});
-
-  // Redirect if not authenticated
-  if (!user) {
-    return null; // ProtectedRoute will handle the redirect
-  }
 
   const getCurrentStep = () => {
     return activeTab === "campaigns" ? 0 : 1;
@@ -53,12 +48,17 @@ export default function HomePage() {
   const campaignsQuery = useQuery({
     queryKey: ["campaigns"],
     queryFn: directus.getCampaigns,
+    staleTime: 1000 * 60, // 1 minute
+    retry: 3,
+    enabled: !!user
   });
 
   const keywordsQuery = useQuery({
     queryKey: ["keywords", selectedCampaign],
     queryFn: () => directus.getKeywords(selectedCampaign),
-    enabled: true,
+    staleTime: 1000 * 60,
+    retry: 3,
+    enabled: !!selectedCampaign && !!user
   });
 
   const addCampaignMutation = useMutation({
@@ -70,6 +70,13 @@ export default function HomePage() {
       toast({ title: "Campaign added" });
       setActiveTab("keywords");
     },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Failed to add campaign", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
   });
 
   const deleteKeywordMutation = useMutation({
@@ -78,6 +85,13 @@ export default function HomePage() {
       queryClient.invalidateQueries({ queryKey: ["keywords", selectedCampaign] });
       toast({ title: "Keyword deleted" });
     },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Failed to delete keyword", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
   });
 
   const addKeywordMutation = useMutation({
@@ -92,6 +106,13 @@ export default function HomePage() {
       keywordForm.reset();
       toast({ title: "Keyword added" });
     },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Failed to add keyword", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
   });
 
   const campaignForm = useForm({
@@ -116,6 +137,20 @@ export default function HomePage() {
       console.error('Failed to delete keyword:', error);
     }
   }, [deleteKeywordMutation]);
+
+  // Wait for user data to be loaded
+  if (!user) {
+    return null;
+  }
+
+  // Show loading state while fetching initial data
+  if (campaignsQuery.isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -276,39 +311,45 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
-              {keywordsQuery.data?.map((keyword: any) => (
-                <Card key={keyword.id} className="mt-4">
-                  <CardContent className="pt-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">
-                        {keyword.keyword}
-                      </h3>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteKeyword(keyword.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {(trendPredictions[keyword.keyword] ||
-                      keyword.trend_prediction) && (
-                      <div className="mt-2">
-                        <AnimatedTrend
-                          trend={
-                            trendPredictions[keyword.keyword]?.prediction ||
-                            keyword.trend_prediction
-                          }
-                          historicalData={
-                            trendPredictions[keyword.keyword]?.historicalData || []
-                          }
-                        />
+              {keywordsQuery.isLoading ? (
+                <div className="flex justify-center mt-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                keywordsQuery.data?.map((keyword: any) => (
+                  <Card key={keyword.id} className="mt-4">
+                    <CardContent className="pt-4">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-semibold">
+                          {keyword.keyword}
+                        </h3>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteKeyword(keyword.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                      {(trendPredictions[keyword.keyword] ||
+                        keyword.trend_prediction) && (
+                        <div className="mt-2">
+                          <AnimatedTrend
+                            trend={
+                              trendPredictions[keyword.keyword]?.prediction ||
+                              keyword.trend_prediction
+                            }
+                            historicalData={
+                              trendPredictions[keyword.keyword]?.historicalData || []
+                            }
+                          />
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </>
           )}
         </TabsContent>
