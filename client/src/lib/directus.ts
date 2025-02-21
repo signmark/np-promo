@@ -5,74 +5,74 @@ import type { KeywordTrend, KeywordWithTrend } from "@shared/schema";
 const API_URL = "https://directus.nplanner.ru";
 
 const client = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+ baseURL: API_URL,
+ headers: {
+   'Content-Type': 'application/json'
+ }
 });
 
 // Add request interceptor to refresh token if needed
 client.interceptors.request.use(async (config) => {
-  const token = localStorage.getItem('directus_token');
-  const refreshToken = localStorage.getItem('directus_refresh_token');
+ const token = localStorage.getItem('directus_token');
+ const refreshToken = localStorage.getItem('directus_refresh_token');
 
-  if (!token && refreshToken) {
-    try {
-      const response = await axios.post(`${API_URL}/auth/refresh`, {
-        refresh_token: refreshToken
-      });
+ if (!token && refreshToken) {
+   try {
+     const response = await axios.post(`${API_URL}/auth/refresh`, {
+       refresh_token: refreshToken
+     });
 
-      if (response.data?.data?.access_token) {
-        localStorage.setItem('directus_token', response.data.data.access_token);
-        config.headers.Authorization = `Bearer ${response.data.data.access_token}`;
-      }
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-      window.location.href = '/auth';
-      return Promise.reject(error);
-    }
-  } else if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+     if (response.data?.data?.access_token) {
+       localStorage.setItem('directus_token', response.data.data.access_token);
+       config.headers.Authorization = `Bearer ${response.data.data.access_token}`;
+     }
+   } catch (error) {
+     console.error('Token refresh failed:', error);
+     window.location.href = '/auth';
+     return Promise.reject(error);
+   }
+ } else if (token) {
+   config.headers.Authorization = `Bearer ${token}`;
+ }
 
-  return config;
+ return config;
 });
 
 // Modify response interceptor for better error handling
 client.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+ (response) => response,
+ async (error) => {
+   const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      const refreshToken = localStorage.getItem('directus_refresh_token');
+   if (error.response?.status === 401 && !originalRequest._retry) {
+     originalRequest._retry = true;
+     const refreshToken = localStorage.getItem('directus_refresh_token');
 
-      if (refreshToken) {
-        try {
-          const response = await axios.post(`${API_URL}/auth/refresh`, {
-            refresh_token: refreshToken
-          });
+     if (refreshToken) {
+       try {
+         const response = await axios.post(`${API_URL}/auth/refresh`, {
+           refresh_token: refreshToken
+         });
 
-          if (response.data?.data?.access_token) {
-            localStorage.setItem('directus_token', response.data.data.access_token);
-            originalRequest.headers.Authorization = `Bearer ${response.data.data.access_token}`;
-            return client(originalRequest);
-          }
-        } catch (refreshError) {
-          console.error('Token refresh failed:', refreshError);
-        }
-      }
+         if (response.data?.data?.access_token) {
+           localStorage.setItem('directus_token', response.data.data.access_token);
+           originalRequest.headers.Authorization = `Bearer ${response.data.data.access_token}`;
+           return client(originalRequest);
+         }
+       } catch (refreshError) {
+         console.error('Token refresh failed:', refreshError);
+       }
+     }
 
-      localStorage.removeItem('directus_token');
-      localStorage.removeItem('directus_refresh_token');
-      localStorage.removeItem('user_id');
-      window.location.href = '/auth';
-      return Promise.reject(new Error('Session expired. Please login again.'));
-    }
+     localStorage.removeItem('directus_token');
+     localStorage.removeItem('directus_refresh_token');
+     localStorage.removeItem('user_id');
+     window.location.href = '/auth';
+     return Promise.reject(new Error('Session expired. Please login again.'));
+   }
 
-    return Promise.reject(error);
-  }
+   return Promise.reject(error);
+ }
 );
 
 export async function login(credentials: LoginCredentials) {
@@ -243,38 +243,25 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     const trend_score = Math.round(lastShows.reduce((sum, item) => sum + item.shows, 0) / lastShows.length);
     const mentions_count = wordstatData.response.data.sources?.reduce((sum, source) => sum + source.count, 0) || 0;
 
-    // First create the keyword
+    // Prepare the keyword payload with campaign relationship
     const keywordPayload = {
       user_id: userId,
       keyword: keyword,
       trend_score: trend_score.toString(),
       mentions_count: mentions_count.toString(),
-      last_checked: new Date().toISOString()
+      last_checked: new Date().toISOString(),
+      // Add campaign relationship directly in the payload
+      user_keywords_campaigns: campaignId ? {
+        create: [{
+          campaign_id: campaignId
+        }]
+      } : undefined
     };
 
     console.log('Creating keyword with payload:', keywordPayload);
     const keywordResponse = await client.post('/items/user_keywords', keywordPayload);
     const newKeyword = keywordResponse.data.data;
-    console.log('Created keyword:', newKeyword);
-
-    // If campaignId is provided, create the relationship separately
-    if (campaignId) {
-      console.log('Creating keyword-campaign relationship');
-      try {
-        const relationshipPayload = {
-          keyword_id: newKeyword.id,
-          campaign_id: campaignId
-        };
-
-        const relationResponse = await client.post('/items/user_keywords_campaigns', relationshipPayload);
-        console.log('Created relationship:', relationResponse.data);
-      } catch (relationError) {
-        console.error('Failed to create relationship:', relationError);
-        // Delete the keyword if relationship creation fails
-        await client.delete(`/items/user_keywords/${newKeyword.id}`);
-        throw new Error('Failed to add keyword to campaign');
-      }
-    }
+    console.log('Created keyword with relationship:', newKeyword);
 
     return newKeyword;
   } catch (error) {
