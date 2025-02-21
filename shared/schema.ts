@@ -5,8 +5,16 @@ export const loginSchema = z.object({
   password: z.string().min(6)
 });
 
+export const campaignSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  user_created: z.string(),
+  description: z.string().optional(),
+});
+
 export const keywordSchema = z.object({
   id: z.string(),
+  campaign_id: z.string(),
   keyword: z.string().min(1),
   user_created: z.string(),
   trend_score: z.number().optional(),
