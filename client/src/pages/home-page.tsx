@@ -16,12 +16,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Trash2, Plus } from "lucide-react";
+import { Loader2, Trash2, Plus, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { useState, useCallback, useEffect } from "react";
+import { useState } from "react";
 import { AnimatedTrend } from "@/components/animated-trend";
-import { NavigationProgress } from "@/components/ui/navigation-progress";
+import type { Campaign, Keyword } from "@shared/schema";
 
 const addCampaignSchema = z.object({
   name: z.string().min(1, "Campaign name is required"),
@@ -30,69 +30,27 @@ const addCampaignSchema = z.object({
 
 const addKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword is required"),
+  campaign_id: z.string().min(1, "Campaign is required"),
 });
 
-const TOTAL_STEPS = 2; // Campaigns and Keywords tabs
+type AddCampaignInput = z.infer<typeof addCampaignSchema>;
+type AddKeywordInput = z.infer<typeof addKeywordSchema>;
 
 export default function HomePage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedCampaign, setSelectedCampaign] = useState("");
-  const [activeTab, setActiveTab] = useState("campaigns");
+  const [selectedCampaign, setSelectedCampaign] = useState<string>("");
   const [trendPredictions, setTrendPredictions] = useState<Record<string, any>>({});
 
-  // Log auth state for debugging
-  useEffect(() => {
-    console.log('Auth state:', { user, isAuthenticated });
-    console.log('LocalStorage:', {
-      token: !!localStorage.getItem('directus_token'),
-      refresh: !!localStorage.getItem('directus_refresh_token'),
-      userId: localStorage.getItem('user_id')
-    });
-  }, [user, isAuthenticated]);
-
-  const getCurrentStep = () => {
-    return activeTab === "campaigns" ? 0 : 1;
-  };
-
-  // Fetch campaigns
   const campaignsQuery = useQuery({
     queryKey: ["campaigns"],
     queryFn: directus.getCampaigns,
-    staleTime: 1000 * 60, // 1 minute
-    retry: 3,
-    enabled: isAuthenticated,
-    onSuccess: (data) => {
-      console.log('Campaigns loaded:', data);
-    },
-    onError: (error: Error) => {
-      console.error('Campaigns error:', error);
-      toast({
-        title: "Failed to load campaigns",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
   });
 
-  // Fetch keywords for selected campaign
   const keywordsQuery = useQuery({
     queryKey: ["keywords", selectedCampaign],
     queryFn: () => directus.getKeywords(selectedCampaign),
-    staleTime: 1000 * 60,
-    retry: 3,
-    enabled: isAuthenticated && !!selectedCampaign,
-    onSuccess: (data) => {
-      console.log('Keywords loaded:', data);
-    },
-    onError: (error: Error) => {
-      console.error('Keywords error:', error);
-      toast({
-        title: "Failed to load keywords",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+    enabled: !!selectedCampaign,
   });
 
   const addCampaignMutation = useMutation({
@@ -102,96 +60,37 @@ export default function HomePage() {
       setSelectedCampaign(data.id);
       campaignForm.reset();
       toast({ title: "Campaign added" });
-      setActiveTab("keywords");
-    },
-    onError: (error: Error) => {
-      toast({ 
-        title: "Failed to add campaign", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    }
-  });
 
-  const deleteKeywordMutation = useMutation({
-    mutationFn: directus.deleteKeyword,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["keywords", selectedCampaign] });
-      toast({ title: "Keyword deleted" });
+      // Switch to keywords tab after campaign creation
+      const keywordsTab = document.querySelector('[value="keywords"]') as HTMLElement;
+      if (keywordsTab) {
+        keywordsTab.click();
+      }
     },
-    onError: (error: Error) => {
-      toast({ 
-        title: "Failed to delete keyword", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    }
   });
 
   const addKeywordMutation = useMutation({
-    mutationFn: async (data: { keyword: string }) => {
-      if (!selectedCampaign) {
-        throw new Error("Please select a campaign first");
-      }
-      return directus.addKeyword(data.keyword, selectedCampaign);
-    },
+    mutationFn: (data: AddKeywordInput) => directus.addKeyword(data.keyword, data.campaign_id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["keywords", selectedCampaign] });
       keywordForm.reset();
       toast({ title: "Keyword added" });
     },
-    onError: (error: Error) => {
-      toast({ 
-        title: "Failed to add keyword", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    }
   });
 
-  const campaignForm = useForm({
+  const campaignForm = useForm<AddCampaignInput>({
     resolver: zodResolver(addCampaignSchema),
     defaultValues: { name: "", description: "" },
   });
 
-  const keywordForm = useForm({
+  const keywordForm = useForm<AddKeywordInput>({
     resolver: zodResolver(addKeywordSchema),
-    defaultValues: { keyword: "" },
+    defaultValues: { keyword: "", campaign_id: "" },
   });
-
-  const handleCampaignSelect = useCallback((campaignId: string) => {
-    setSelectedCampaign(campaignId);
-    setActiveTab("keywords");
-  }, []);
-
-  const handleDeleteKeyword = useCallback(async (keywordId: string) => {
-    try {
-      await deleteKeywordMutation.mutateAsync(keywordId);
-    } catch (error) {
-      console.error('Failed to delete keyword:', error);
-    }
-  }, [deleteKeywordMutation]);
-
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  if (campaignsQuery.isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
-      <NavigationProgress
-        currentStep={getCurrentStep()}
-        totalSteps={TOTAL_STEPS}
-      />
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue="campaigns">
         <TabsList>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="keywords">Keywords</TabsTrigger>
@@ -204,13 +103,7 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <Form {...campaignForm}>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    campaignForm.handleSubmit((data) => addCampaignMutation.mutate(data))(e);
-                  }}
-                  className="space-y-4"
-                >
+                <form onSubmit={campaignForm.handleSubmit((data) => addCampaignMutation.mutate(data))} className="space-y-4">
                   <FormField
                     control={campaignForm.control}
                     name="name"
@@ -236,11 +129,7 @@ export default function HomePage() {
                     )}
                   />
                   <Button type="submit" disabled={addCampaignMutation.isPending}>
-                    {addCampaignMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4 mr-2" />
-                    )}
+                    {addCampaignMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
                     Add Campaign
                   </Button>
                 </form>
@@ -248,7 +137,7 @@ export default function HomePage() {
             </CardContent>
           </Card>
 
-          {campaignsQuery.data?.map((campaign: any) => (
+          {campaignsQuery.data?.map((campaign: Campaign) => (
             <Card key={campaign.id} className="mt-4">
               <CardHeader>
                 <CardTitle>{campaign.name}</CardTitle>
@@ -256,10 +145,16 @@ export default function HomePage() {
               <CardContent>
                 <p className="text-sm text-gray-500">{campaign.description}</p>
                 <Button
-                  type="button"
                   variant="secondary"
                   className="mt-2"
-                  onClick={() => handleCampaignSelect(campaign.id)}
+                  onClick={() => {
+                    setSelectedCampaign(campaign.id);
+                    const keywordsTab = document.querySelector('[value="keywords"]') as HTMLElement;
+                    if (keywordsTab) {
+                      keywordsTab.click();
+                      keywordsQuery.refetch();
+                    }
+                  }}
                 >
                   View Keywords
                 </Button>
@@ -272,9 +167,7 @@ export default function HomePage() {
           {!selectedCampaign ? (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-center text-muted-foreground">
-                  Please select a campaign first
-                </p>
+                <p className="text-center text-muted-foreground">Please select a campaign first</p>
               </CardContent>
             </Card>
           ) : (
@@ -282,25 +175,12 @@ export default function HomePage() {
               <Card className="mb-4">
                 <CardContent className="pt-6 flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Current Campaign:
-                    </p>
+                    <p className="text-sm text-muted-foreground">Current Campaign:</p>
                     <p className="text-lg font-medium">
-                      {
-                        campaignsQuery.data?.find(
-                          (c: any) => c.id === selectedCampaign
-                        )?.name
-                      }
+                      {campaignsQuery.data?.find((c: Campaign) => c.id === selectedCampaign)?.name}
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedCampaign("");
-                      setActiveTab("campaigns");
-                    }}
-                  >
+                  <Button variant="outline" onClick={() => setSelectedCampaign("")}>
                     Change Campaign
                   </Button>
                 </CardContent>
@@ -312,13 +192,12 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <Form {...keywordForm}>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        keywordForm.handleSubmit((data) => addKeywordMutation.mutate(data))(e);
-                      }}
-                      className="space-y-4"
-                    >
+                    <form onSubmit={keywordForm.handleSubmit((data) => {
+                      addKeywordMutation.mutate({
+                        keyword: data.keyword,
+                        campaign_id: selectedCampaign
+                      });
+                    })} className="space-y-4">
                       <FormField
                         control={keywordForm.control}
                         name="keyword"
@@ -332,11 +211,7 @@ export default function HomePage() {
                         )}
                       />
                       <Button type="submit" disabled={addKeywordMutation.isPending}>
-                        {addKeywordMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Plus className="h-4 w-4 mr-2" />
-                        )}
+                        {addKeywordMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
                         Add Keyword
                       </Button>
                     </form>
@@ -344,45 +219,26 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
-              {keywordsQuery.isLoading ? (
-                <div className="flex justify-center mt-4">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : (
-                keywordsQuery.data?.map((keyword: any) => (
-                  <Card key={keyword.id} className="mt-4">
-                    <CardContent className="pt-4">
-                      <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold">
-                          {keyword.keyword}
-                        </h3>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteKeyword(keyword.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+              {keywordsQuery.data?.map((keyword: Keyword) => (
+                <Card key={keyword.id} className="mt-4">
+                  <CardContent className="pt-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-semibold">{keyword.keyword}</h3>
+                      <Button variant="ghost" size="icon" onClick={() => directus.deleteKeyword(keyword.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {(trendPredictions[keyword.keyword] || keyword.trend_prediction) && (
+                      <div className="mt-2">
+                        <AnimatedTrend
+                          trend={trendPredictions[keyword.keyword]?.prediction || keyword.trend_prediction}
+                          historicalData={trendPredictions[keyword.keyword]?.historicalData || []}
+                        />
                       </div>
-                      {(trendPredictions[keyword.keyword] ||
-                        keyword.trend_prediction) && (
-                        <div className="mt-2">
-                          <AnimatedTrend
-                            trend={
-                              trendPredictions[keyword.keyword]?.prediction ||
-                              keyword.trend_prediction
-                            }
-                            historicalData={
-                              trendPredictions[keyword.keyword]?.historicalData || []
-                            }
-                          />
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
             </>
           )}
         </TabsContent>
