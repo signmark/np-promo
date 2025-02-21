@@ -149,33 +149,72 @@ export default function HomePage() {
         </TabsContent>
 
         <TabsContent value="keywords">
-          <Card>
-            <CardHeader>
-              <CardTitle>Add Keyword</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Form {...keywordForm}>
-                <form onSubmit={keywordForm.handleSubmit((data) => addKeywordMutation.mutate({ ...data, campaign_id: selectedCampaign }))} className="space-y-4">
-                  <FormField
-                    control={keywordForm.control}
-                    name="keyword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input placeholder="Enter keyword" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" disabled={!selectedCampaign || addKeywordMutation.isPending}>
-                    {addKeywordMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
-                    Add Keyword
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
+          {!selectedCampaign ? (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-center text-muted-foreground">Please select a campaign first</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Add Keyword</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Form {...keywordForm}>
+                    <form onSubmit={keywordForm.handleSubmit(async (data) => {
+                      try {
+                        const wordstatData = await directus.getWordstatData(data.keyword);
+                        if (wordstatData?.response?.data?.shows) {
+                          const suggestions = wordstatData.response.data.shows
+                            .map((item, index) => ({
+                              keyword: `${data.keyword} ${index + 1}`,
+                              shows: item.shows
+                            }))
+                            .filter(item => item.shows > 0)
+                            .slice(0, 10);
+                          
+                          // Add original keyword first
+                          addKeywordMutation.mutate({ 
+                            keyword: data.keyword,
+                            campaign_id: selectedCampaign 
+                          });
+                          
+                          // Add suggested keywords
+                          suggestions.forEach(suggestion => {
+                            addKeywordMutation.mutate({
+                              keyword: suggestion.keyword,
+                              campaign_id: selectedCampaign
+                            });
+                          });
+                        }
+                      } catch (error) {
+                        console.error('WordStat error:', error);
+                      }
+                    })} className="space-y-4">
+                      <FormField
+                        control={keywordForm.control}
+                        name="keyword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input placeholder="Enter keyword" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button type="submit" disabled={addKeywordMutation.isPending}>
+                        {addKeywordMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                        Add Keyword with Suggestions
+                      </Button>
+                    </form>
+                  </Form>
+                </CardContent>
+              </Card>
+            </>
+          )}
 
           {keywordsQuery.data?.map((keyword) => (
             <Card key={keyword.id} className="mt-4">
