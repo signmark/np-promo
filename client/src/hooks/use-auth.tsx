@@ -8,6 +8,7 @@ type AuthContextType = {
   isAuthenticated: boolean;
   loginMutation: UseMutationResult<any, Error, LoginCredentials>;
   logout: () => void;
+  user: any; // Add user property
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -18,13 +19,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: directus.login,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Login successful:', data);
       toast({
         title: "Success",
         description: "Logged in successfully",
       });
     },
     onError: (error: Error) => {
+      console.error('Login failed:', error);
       toast({
         title: "Login failed",
         description: error.message,
@@ -35,15 +38,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('directus_token');
+    localStorage.removeItem('directus_refresh_token');
+    localStorage.removeItem('user_id');
     window.location.href = '/auth';
   };
+
+  // Get the current user's information
+  const user = isAuthenticated ? { id: localStorage.getItem('user_id') } : null;
 
   return (
     <AuthContext.Provider
       value={{
         isAuthenticated,
         loginMutation,
-        logout
+        logout,
+        user
       }}
     >
       {children}
