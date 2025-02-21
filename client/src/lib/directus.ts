@@ -242,17 +242,6 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     }
 
     // Проверяем существование ключевого слова в этой кампании
-    const filter = {
-      _and: [
-        { keyword: { _eq: keyword } },
-        { user_id: { _eq: userId } }
-      ]
-    };
-
-    if (campaignId) {
-      filter._and.push({ campaign: { id: { _eq: campaignId } } });
-    }
-
     const exists = await checkKeywordExists(keyword);
     if (exists) {
       throw new Error('This keyword is already in your semantic core');
