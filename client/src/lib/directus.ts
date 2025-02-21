@@ -245,12 +245,8 @@ export async function addKeyword(keyword: string, campaignId?: string) {
       type: "main",
       trend_score: trend_score.toString(),
       mentions_count: mentions_count.toString(),
-      user_keywords_campaigns: campaignId ? {
-        create: [{
-          keyword_id: "$CURRENT_ID",
-          campaign_id: campaignId
-        }]
-      } : undefined
+      // Обновляем формат для создания связи с кампанией
+      campaigns: campaignId ? [campaignId] : []
     };
     console.log('Request payload:', payload);
 
