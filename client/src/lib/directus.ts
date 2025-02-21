@@ -123,6 +123,7 @@ export async function getUserInfo() {
   }
 }
 
+// В функции getKeywords обновляем фильтр для правильной работы с campaign_id
 export async function getKeywords(campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -132,16 +133,16 @@ export async function getKeywords(campaignId?: string) {
 
     console.log('Fetching keywords for user:', userId, 'campaign:', campaignId);
 
-    // Формируем фильтр с учетом campaign_id
+    // Формируем фильтр с учетом кампании
     const filter: Record<string, any> = {
       user_id: { _eq: userId }
     };
 
     if (campaignId) {
-      filter.campaign_id = { _eq: campaignId };
+      filter.campaign = { id: { _eq: campaignId } }; // Изменено с campaign_id на campaign.id
     }
 
-    const url = `/items/user_keywords?fields=*&filter=${JSON.stringify(filter)}`;
+    const url = `/items/user_keywords?fields=*,campaign.id&filter=${JSON.stringify(filter)}`;
     const response = await client.get(url);
     console.log('Keywords API response:', response);
 
@@ -227,6 +228,7 @@ export async function checkKeywordExists(keyword: string): Promise<boolean> {
   }
 }
 
+// В функции addKeyword оставляем текущую структуру payload
 export async function addKeyword(keyword: string, campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -236,14 +238,14 @@ export async function addKeyword(keyword: string, campaignId?: string) {
       throw new Error('User ID not found. Please login again.');
     }
 
-    // Check if keyword already exists for this campaign
+    // Проверяем существование ключевого слова в этой кампании
     const filter: Record<string, any> = {
       keyword: { _eq: keyword },
       user_id: { _eq: userId }
     };
 
     if (campaignId) {
-      filter.campaign_id = { _eq: campaignId };
+      filter.campaign = { id: { _eq: campaignId } }; // Обновлено для соответствия структуре
     }
 
     const exists = await checkKeywordExists(keyword);
@@ -251,7 +253,7 @@ export async function addKeyword(keyword: string, campaignId?: string) {
       throw new Error('This keyword is already in your semantic core');
     }
 
-    // Get statistics before adding the keyword
+    // Получаем статистику перед добавлением ключевого слова
     const wordstatData = await getWordstatData(keyword);
     console.log('Received WordStat data:', wordstatData);
 
