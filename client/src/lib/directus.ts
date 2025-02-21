@@ -350,3 +350,16 @@ export async function getKeywordWithTrendPrediction(keyword: string): Promise<Ke
 }
 
 export { predictKeywordTrend } from './openai';
+
+export async function getCampaigns() {
+  const { data } = await client.get('/items/user_campaigns');
+  return data.data;
+}
+
+export async function addCampaign(data: { name: string; description?: string }) {
+  const user_id = localStorage.getItem('user_id');
+  return await client.post('/items/user_campaigns', {
+    ...data,
+    user_id
+  });
+}

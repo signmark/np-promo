@@ -8,7 +8,7 @@ export const loginSchema = z.object({
 export const campaignSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
-  user_created: z.string(),
+  user_id: z.string(),
   description: z.string().optional(),
 });
 
