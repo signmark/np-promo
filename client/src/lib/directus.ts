@@ -260,8 +260,8 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     const mentions_count = wordstatData.response.data.sources?.reduce((sum, source) => sum + source.count, 0) || 0;
 
     const payload = {
-      user_id: userId,
-      campaign_id: campaignId,  // Теперь передаем campaign_id напрямую
+      user_id: { id: userId },
+      campaign: campaignId ? { id: campaignId } : null,
       keyword: keyword,
       type: "main",
       trend_score,
