@@ -136,12 +136,17 @@ export async function getKeywords(campaignId?: string) {
     let url = `/items/user_keywords?filter[user_id][_eq]=${userId}`;
 
     if (campaignId) {
-      // Используем junction table для фильтрации
-      url += `&filter[user_keywords_campaigns][campaign_id][_eq]=${campaignId}`;
-    }
+      // Fetch keywords that have a relationship with the specified campaign
+      const relationResponse = await client.get(`/items/user_keywords_campaigns?filter[campaign_id][_eq]=${campaignId}`);
+      const keywordIds = relationResponse.data.data.map((rel: any) => rel.keyword_id);
 
-    // Запрашиваем связанные данные
-    url += '&fields=*,user_keywords_campaigns.campaign_id,user_keywords_campaigns.keyword_id';
+      if (keywordIds.length > 0) {
+        url += `&filter[id][_in]=${keywordIds.join(',')}`;
+      } else {
+        // If no relationships found, return empty array
+        return [];
+      }
+    }
 
     console.log('Request URL:', url);
     const response = await client.get(url);
@@ -241,26 +246,32 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     const trend_score = Math.round(lastShows.reduce((sum, item) => sum + item.shows, 0) / lastShows.length);
     const mentions_count = wordstatData.response.data.sources?.reduce((sum, source) => sum + source.count, 0) || 0;
 
-    const payload = {
+    // First create the keyword
+    const keywordPayload = {
       user_id: userId,
       keyword: keyword,
-      type: "main",
       trend_score: trend_score.toString(),
       mentions_count: mentions_count.toString(),
-      user_keywords_campaigns: campaignId ? {
-        create: [
-          {
-            campaign_id: campaignId
-          }
-        ]
-      } : undefined
+      last_checked: new Date().toISOString()
     };
 
-    console.log('Request payload:', payload);
+    console.log('Creating keyword with payload:', keywordPayload);
+    const { data: keywordData } = await client.post('/items/user_keywords', keywordPayload);
+    console.log('Keyword created:', keywordData);
 
-    const { data } = await client.post('/items/user_keywords', payload);
-    console.log('Add keyword response:', data);
-    return data.data;
+    // If campaignId is provided, create the relationship
+    if (campaignId && keywordData.data.id) {
+      const relationPayload = {
+        keyword_id: keywordData.data.id,
+        campaign_id: campaignId
+      };
+
+      console.log('Creating relationship with payload:', relationPayload);
+      await client.post('/items/user_keywords_campaigns', relationPayload);
+      console.log('Relationship created successfully');
+    }
+
+    return keywordData.data;
   } catch (error) {
     console.error('Add keyword error:', error);
     if (axios.isAxiosError(error)) {
