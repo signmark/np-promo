@@ -5,163 +5,168 @@ import type { KeywordTrend, KeywordWithTrend } from "@shared/schema";
 const API_URL = "https://directus.nplanner.ru";
 
 const client = axios.create({
- baseURL: API_URL,
- headers: {
-   'Content-Type': 'application/json'
- }
+baseURL: API_URL,
+headers: {
+    'Content-Type': 'application/json'
+}
 });
 
 // Add request interceptor to refresh token if needed
 client.interceptors.request.use(async (config) => {
- const token = localStorage.getItem('directus_token');
- const refreshToken = localStorage.getItem('directus_refresh_token');
+const token = localStorage.getItem('directus_token');
+const refreshToken = localStorage.getItem('directus_refresh_token');
 
- if (!token && refreshToken) {
-   try {
-     const response = await axios.post(`${API_URL}/auth/refresh`, {
-       refresh_token: refreshToken
-     });
+if (!token && refreshToken) {
+    try {
+        const response = await axios.post(`${API_URL}/auth/refresh`, {
+            refresh_token: refreshToken
+        });
 
-     if (response.data?.data?.access_token) {
-       localStorage.setItem('directus_token', response.data.data.access_token);
-       config.headers.Authorization = `Bearer ${response.data.data.access_token}`;
-     }
-   } catch (error) {
-     console.error('Token refresh failed:', error);
-     window.location.href = '/auth';
-     return Promise.reject(error);
-   }
- } else if (token) {
-   config.headers.Authorization = `Bearer ${token}`;
- }
+        if (response.data?.data?.access_token) {
+            localStorage.setItem('directus_token', response.data.data.access_token);
+            config.headers.Authorization = `Bearer ${response.data.data.access_token}`;
+        }
+    } catch (error) {
+        console.error('Token refresh failed:', error);
+        window.location.href = '/auth';
+        return Promise.reject(error);
+    }
+} else if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+}
 
- return config;
+return config;
 });
 
 // Modify response interceptor for better error handling
 client.interceptors.response.use(
- (response) => response,
- async (error) => {
-   const originalRequest = error.config;
+(response) => response,
+async (error) => {
+    const originalRequest = error.config;
 
-   if (error.response?.status === 401 && !originalRequest._retry) {
-     originalRequest._retry = true;
-     const refreshToken = localStorage.getItem('directus_refresh_token');
+    if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+        const refreshToken = localStorage.getItem('directus_refresh_token');
 
-     if (refreshToken) {
-       try {
-         const response = await axios.post(`${API_URL}/auth/refresh`, {
-           refresh_token: refreshToken
-         });
+        if (refreshToken) {
+            try {
+                const response = await axios.post(`${API_URL}/auth/refresh`, {
+                    refresh_token: refreshToken
+                });
 
-         if (response.data?.data?.access_token) {
-           localStorage.setItem('directus_token', response.data.data.access_token);
-           originalRequest.headers.Authorization = `Bearer ${response.data.data.access_token}`;
-           return client(originalRequest);
-         }
-       } catch (refreshError) {
-         console.error('Token refresh failed:', refreshError);
-       }
-     }
+                if (response.data?.data?.access_token) {
+                    localStorage.setItem('directus_token', response.data.data.access_token);
+                    originalRequest.headers.Authorization = `Bearer ${response.data.data.access_token}`;
+                    return client(originalRequest);
+                }
+            } catch (refreshError) {
+                console.error('Token refresh failed:', refreshError);
+            }
+        }
 
-     localStorage.removeItem('directus_token');
-     localStorage.removeItem('directus_refresh_token');
-     localStorage.removeItem('user_id');
-     window.location.href = '/auth';
-     return Promise.reject(new Error('Session expired. Please login again.'));
-   }
+        localStorage.removeItem('directus_token');
+        localStorage.removeItem('directus_refresh_token');
+        localStorage.removeItem('user_id');
+        window.location.href = '/auth';
+        return Promise.reject(new Error('Session expired. Please login again.'));
+    }
 
-   return Promise.reject(error);
- }
+    return Promise.reject(error);
+}
 );
 
 export async function login(credentials: LoginCredentials) {
-  try {
+try {
     console.log('Attempting login with:', credentials.email);
     const response = await client.post('/auth/login', credentials);
     console.log('Login response:', response);
 
     if (response.data?.data?.access_token) {
-      localStorage.setItem('directus_token', response.data.data.access_token);
-      localStorage.setItem('directus_refresh_token', response.data.data.refresh_token);
+        localStorage.setItem('directus_token', response.data.data.access_token);
+        localStorage.setItem('directus_refresh_token', response.data.data.refresh_token);
 
-      const userResponse = await client.get('/users/me');
-      const userInfo = userResponse.data.data;
-      console.log('User info received:', userInfo);
+        const userResponse = await client.get('/users/me');
+        const userInfo = userResponse.data.data;
+        console.log('User info received:', userInfo);
 
-      if (userInfo.id) {
-        localStorage.setItem('user_id', userInfo.id);
-        console.log('Saved user_id:', userInfo.id);
-      } else {
-        console.error('No user id in response:', userInfo);
-      }
+        if (userInfo.id) {
+            localStorage.setItem('user_id', userInfo.id);
+            console.log('Saved user_id:', userInfo.id);
+        } else {
+            console.error('No user id in response:', userInfo);
+        }
 
-      return response.data.data;
+        return response.data.data;
     } else {
-      throw new Error('Invalid response format');
+        throw new Error('Invalid response format');
     }
-  } catch (error) {
+} catch (error) {
     console.error('Login error:', error);
     if (axios.isAxiosError(error)) {
-      const message = error.response?.data?.errors?.[0]?.message || 'Failed to login';
-      throw new Error(message);
+        const message = error.response?.data?.errors?.[0]?.message || 'Failed to login';
+        throw new Error(message);
     }
     throw error;
-  }
+}
 }
 
 export async function getUserInfo() {
-  try {
+try {
     const response = await client.get('/users/me');
     return response.data.data;
-  } catch (error) {
+} catch (error) {
     console.error('Get user info error:', error);
     if (axios.isAxiosError(error)) {
-      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to get user info');
+        throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to get user info');
     }
     throw error;
-  }
+}
 }
 
 // Modify getKeywords function to properly handle UUID relationships
 export async function getKeywords(campaignId?: string) {
-  try {
+try {
     const userId = localStorage.getItem('user_id');
     if (!userId) {
-      throw new Error('User ID not found. Please login again.');
+        throw new Error('User ID not found. Please login again.');
     }
 
     console.log('Fetching keywords for campaign:', campaignId);
 
     if (campaignId) {
-      // Get keywords for specific campaign
-      const response = await client.get(`/items/user_keywords?filter[campaign_id][_eq]=${campaignId}`);
-      console.log('Keywords response:', response.data);
-      return response.data.data;
+        // Get keywords for specific campaign
+        const response = await client.get(`/items/user_keywords?filter[campaign_id][_eq]=${campaignId}`);
+        console.log('Keywords response:', response.data);
+        return response.data.data;
     } else {
-      // If no campaign ID, get all user's keywords through campaigns
-      const campaignsResponse = await client.get(`/items/user_campaigns?filter[user_id][_eq]=${userId}`);
-      const campaignIds = campaignsResponse.data.data.map((c: any) => c.id);
+        // If no campaign ID, get all user's keywords through campaigns
+        const campaignsResponse = await client.get(`/items/user_campaigns?filter[user_id][_eq]=${userId}`);
+        const campaignIds = campaignsResponse.data.data.map((c: any) => c.id);
 
-      if (campaignIds.length === 0) return [];
+        if (campaignIds.length === 0) return [];
 
-      const response = await client.get(`/items/user_keywords?filter[campaign_id][_in]=${campaignIds.join(',')}`);
-      return response.data.data;
+        const response = await client.get(`/items/user_keywords?filter[campaign_id][_in]=${campaignIds.join(',')}`);
+        return response.data.data;
     }
-  } catch (error) {
+} catch (error) {
     console.error('Get keywords error:', error);
     if (axios.isAxiosError(error)) {
-      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to fetch keywords');
+        throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to fetch keywords');
     }
     throw error;
-  }
+}
 }
 
 interface WordstatResponse {
   response: {
     data: {
-      shows: { shows: number }[];
-      sources?: { count: number }[];
+      shows: Array<{
+        shows: number;
+        phrase: string;
+      }>;
+      sources?: Array<{
+        count: number;
+      }>;
     };
   };
 }
@@ -176,25 +181,26 @@ export async function getWordstatData(keyword: string): Promise<WordstatResponse
 
     const data = await response.json();
 
-    // Validate data structure
+    // Validate and transform data structure
     if (!data?.response?.data?.shows || !Array.isArray(data.response.data.shows)) {
       throw new Error('Invalid WordStat data format');
     }
 
+    // Add phrase to each show item if it's in the top-level response
+    if (data.response.data.items) {
+      data.response.data.shows = data.response.data.items.map((item: any, index: number) => ({
+        shows: parseInt(item.number),
+        phrase: item.phrase
+      }));
+    }
+
     // Ensure minimum data points
-    if (data.response.data.shows.length < 6) {
-      throw new Error('Insufficient historical data for accurate prediction');
+    if (data.response.data.shows.length === 0) {
+      throw new Error('No suggestions found');
     }
 
-    // Remove any invalid entries
-    data.response.data.shows = data.response.data.shows.filter(
-      (item: any) => typeof item.shows === 'number' && !isNaN(item.shows)
-    );
-
-    // Sort data chronologically if timestamps are available
-    if (data.response.data.shows[0]?.timestamp) {
-      data.response.data.shows.sort((a: any, b: any) => a.timestamp - b.timestamp);
-    }
+    // Sort by shows count descending
+    data.response.data.shows.sort((a: any, b: any) => b.shows - a.shows);
 
     console.log('WordStat data received:', data);
     return data;

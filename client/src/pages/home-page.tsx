@@ -16,11 +16,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Trash2, Plus, TrendingUp } from "lucide-react";
+import { Loader2, Trash2, Plus, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useState } from "react";
-import { AnimatedTrend } from "@/components/animated-trend";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { Campaign, Keyword } from "@shared/schema";
 
 const addCampaignSchema = z.object({
@@ -37,6 +37,8 @@ export default function HomePage() {
   const { toast } = useToast();
   const [selectedCampaign, setSelectedCampaign] = useState<string>("");
   const [activeTab, setActiveTab] = useState("campaigns");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedKeywords, setSelectedKeywords] = useState<Set<string>>(new Set());
 
   // Query campaigns
   const campaignsQuery = useQuery({
@@ -49,6 +51,13 @@ export default function HomePage() {
     queryKey: ["keywords", selectedCampaign],
     queryFn: () => directus.getKeywords(selectedCampaign),
     enabled: !!selectedCampaign,
+  });
+
+  // Query WordStat suggestions
+  const wordstatQuery = useQuery({
+    queryKey: ["wordstat", searchTerm],
+    queryFn: () => directus.getWordstatData(searchTerm),
+    enabled: searchTerm.length > 2, // Only search when user types at least 3 characters
   });
 
   // Add campaign mutation
@@ -65,16 +74,21 @@ export default function HomePage() {
 
   // Add keyword mutation
   const addKeywordMutation = useMutation({
-    mutationFn: (data: { keyword: string }) => {
+    mutationFn: async (keywords: string[]) => {
       if (!selectedCampaign) {
         throw new Error("Please select a campaign first");
       }
-      return directus.addKeyword(data.keyword, selectedCampaign);
+      // Add keywords one by one
+      const results = await Promise.all(
+        keywords.map(keyword => directus.addKeyword(keyword, selectedCampaign))
+      );
+      return results;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["keywords", selectedCampaign] });
-      keywordForm.reset();
-      toast({ title: "Keyword added" });
+      setSelectedKeywords(new Set());
+      setSearchTerm("");
+      toast({ title: "Keywords added" });
     },
   });
 
@@ -101,6 +115,26 @@ export default function HomePage() {
       toast({ title: "Keyword deleted" });
     },
   });
+
+  const handleKeywordSelect = (keyword: string) => {
+    setSelectedKeywords(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(keyword)) {
+        newSet.delete(keyword);
+      } else {
+        newSet.add(keyword);
+      }
+      return newSet;
+    });
+  };
+
+  const handleAddSelectedKeywords = () => {
+    if (selectedKeywords.size === 0) {
+      toast({ title: "Please select keywords to add", variant: "destructive" });
+      return;
+    }
+    addKeywordMutation.mutate(Array.from(selectedKeywords));
+  };
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -198,60 +232,83 @@ export default function HomePage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Add Keyword</CardTitle>
+                  <CardTitle>Search Keywords</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Form {...keywordForm}>
-                    <form onSubmit={keywordForm.handleSubmit((data) => {
-                      addKeywordMutation.mutate(data);
-                    })} className="space-y-4">
-                      <FormField
-                        control={keywordForm.control}
-                        name="keyword"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input placeholder="Enter keyword" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button type="submit" disabled={addKeywordMutation.isPending}>
-                        {addKeywordMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
-                        Add Keyword
-                      </Button>
-                    </form>
-                  </Form>
+                  <div className="flex gap-4 mb-4">
+                    <Input 
+                      placeholder="Search keywords..." 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={handleAddSelectedKeywords}
+                      disabled={selectedKeywords.size === 0 || addKeywordMutation.isPending}
+                    >
+                      {addKeywordMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Plus className="h-4 w-4 mr-2" />
+                      )}
+                      Add Selected ({selectedKeywords.size})
+                    </Button>
+                  </div>
+
+                  {wordstatQuery.isLoading ? (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : wordstatQuery.data?.response?.data?.shows ? (
+                    <div className="space-y-2">
+                      {wordstatQuery.data.response.data.shows.map((item: any, index: number) => (
+                        <div key={index} className="flex items-center space-x-4 p-2 hover:bg-muted rounded">
+                          <Checkbox
+                            checked={selectedKeywords.has(item.phrase)}
+                            onCheckedChange={() => handleKeywordSelect(item.phrase)}
+                          />
+                          <span className="flex-1">{item.phrase}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {item.shows} shows/month
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : searchTerm.length > 2 ? (
+                    <p className="text-center text-muted-foreground py-4">No suggestions found</p>
+                  ) : null}
                 </CardContent>
               </Card>
 
-              {keywordsQuery.data?.map((keyword: Keyword) => (
-                <Card key={keyword.id} className="mt-4">
-                  <CardContent className="pt-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">{keyword.keyword}</h3>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm text-muted-foreground">
-                          Trend: {keyword.trend_score || 'N/A'}
-                        </p>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => deleteKeywordMutation.mutate(keyword.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+              <div className="mt-4 space-y-4">
+                <h3 className="text-lg font-semibold">Current Keywords</h3>
+                {keywordsQuery.data?.map((keyword: Keyword) => (
+                  <Card key={keyword.id}>
+                    <CardContent className="pt-4">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-semibold">{keyword.keyword}</h3>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-muted-foreground">
+                            Trend: {keyword.trend_score || 'N/A'}
+                          </p>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => deleteKeywordMutation.mutate(keyword.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                    {keyword.mentions_count && (
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Mentions: {keyword.mentions_count}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                      {keyword.mentions_count && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Mentions: {keyword.mentions_count}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </>
           )}
         </TabsContent>
