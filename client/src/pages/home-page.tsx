@@ -51,10 +51,17 @@ export default function HomePage() {
 
   const addCampaignMutation = useMutation({
     mutationFn: directus.addCampaign,
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      setSelectedCampaign(data.id);
       campaignForm.reset();
       toast({ title: "Campaign added" });
+      
+      // Switch to keywords tab after campaign creation
+      const keywordsTab = document.querySelector('[value="keywords"]') as HTMLElement;
+      if (keywordsTab) {
+        keywordsTab.click();
+      }
     },
   });
 
