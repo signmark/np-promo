@@ -16,20 +16,36 @@ export const userCampaigns = pgTable('user_campaigns', {
 export const userKeywords = pgTable('user_keywords', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').notNull(),
-  campaignId: uuid('campaign_id').array(),
   keyword: text('keyword').notNull(),
   trendScore: text('trend_score'),
   mentionsCount: text('mentions_count'),
   lastChecked: timestamp('last_checked').defaultNow(),
 });
 
+// Junction table for many-to-many relationship
+export const userKeywordsCampaigns = pgTable('user_keywords_campaigns', {
+  keywordId: uuid('keyword_id').notNull().references(() => userKeywords.id),
+  campaignId: uuid('campaign_id').notNull().references(() => userCampaigns.id),
+});
+
 // Relations
 export const userCampaignsRelations = relations(userCampaigns, ({ many }) => ({
-  keywords: many(userKeywords),
+  keywords: many(userKeywordsCampaigns),
 }));
 
 export const userKeywordsRelations = relations(userKeywords, ({ many }) => ({
-  campaigns: many(userCampaigns),
+  campaigns: many(userKeywordsCampaigns),
+}));
+
+export const userKeywordsCampaignsRelations = relations(userKeywordsCampaigns, ({ one }) => ({
+  keyword: one(userKeywords, {
+    fields: [userKeywordsCampaigns.keywordId],
+    references: [userKeywords.id],
+  }),
+  campaign: one(userCampaigns, {
+    fields: [userKeywordsCampaigns.campaignId],
+    references: [userCampaigns.id],
+  }),
 }));
 
 // Zod schemas for validation
@@ -47,24 +63,23 @@ export const campaignSchema = z.object({
 
 export const keywordSchema = z.object({
   id: z.string(),
-  campaign_id: z.array(z.string()),
   keyword: z.string().min(1),
   user_id: z.string(),
-  trend_score: z.number().optional(),
-  mentions_count: z.number().optional(),
+  trend_score: z.string().optional(),
+  mentions_count: z.string().optional(),
+  campaigns: z.array(z.string()).optional(),
 });
 
-export const keywordTrendSchema = z.object({
-  trend_direction: z.enum(['up', 'down', 'stable']),
-  growth_potential: z.number().min(0).max(100),
-  confidence_score: z.number().min(0).max(1),
-  seasonality: z.array(z.string()),
-  prediction_date: z.string(),
-});
-
-export const keywordWithTrendSchema = keywordSchema.extend({
-  trend_prediction: keywordTrendSchema.optional(),
-});
+// Export types
+export type LoginCredentials = z.infer<typeof loginSchema>;
+export type Campaign = typeof userCampaigns.$inferSelect;
+export type InsertCampaign = typeof userCampaigns.$inferInsert;
+export type Keyword = typeof userKeywords.$inferSelect;
+export type InsertKeyword = typeof userKeywords.$inferInsert;
+export type WordstatResponse = z.infer<typeof wordstatResponseSchema>;
+export type SearchSettings = z.infer<typeof searchSettingsSchema>;
+export type KeywordTrend = z.infer<typeof keywordTrendSchema>;
+export type KeywordWithTrend = z.infer<typeof keywordWithTrendSchema>;
 
 export const searchSettingsSchema = z.object({
   user_id: z.string(),
@@ -106,13 +121,14 @@ export const wordstatResponseSchema = z.object({
   })
 });
 
-// Export types
-export type LoginCredentials = z.infer<typeof loginSchema>;
-export type Campaign = typeof userCampaigns.$inferSelect;
-export type InsertCampaign = typeof userCampaigns.$inferInsert;
-export type Keyword = typeof userKeywords.$inferSelect;
-export type InsertKeyword = typeof userKeywords.$inferInsert;
-export type WordstatResponse = z.infer<typeof wordstatResponseSchema>;
-export type SearchSettings = z.infer<typeof searchSettingsSchema>;
-export type KeywordTrend = z.infer<typeof keywordTrendSchema>;
-export type KeywordWithTrend = z.infer<typeof keywordWithTrendSchema>;
+export const keywordTrendSchema = z.object({
+  trend_direction: z.enum(['up', 'down', 'stable']),
+  growth_potential: z.number().min(0).max(100),
+  confidence_score: z.number().min(0).max(1),
+  seasonality: z.array(z.string()),
+  prediction_date: z.string(),
+});
+
+export const keywordWithTrendSchema = keywordSchema.extend({
+  trend_prediction: keywordTrendSchema.optional(),
+});

@@ -140,7 +140,7 @@ export async function getKeywords(campaignId?: string) {
     };
 
     if (campaignId) {
-      filter._and.push({ campaign_id: { _contains: [campaignId] } });
+      filter._and.push({ campaigns: { campaign_id: { _eq: campaignId } } });
     }
 
     const url = `/items/user_keywords?filter=${JSON.stringify(filter)}`;
@@ -248,7 +248,9 @@ export async function addKeyword(keyword: string, campaignId?: string) {
       type: "main",
       trend_score: trend_score.toString(),
       mentions_count: mentions_count.toString(),
-      campaign_id: campaignId ? [campaignId] : []
+      campaigns: campaignId ? {
+        create: [{ campaign_id: campaignId }]
+      } : undefined
     };
     console.log('Request payload:', payload);
 
