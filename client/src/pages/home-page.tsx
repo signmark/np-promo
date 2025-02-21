@@ -16,10 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Trash2, Plus, TrendingUp } from "lucide-react";
+import { Loader2, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { AnimatedTrend } from "@/components/animated-trend";
 
 const addCampaignSchema = z.object({
@@ -59,6 +59,14 @@ export default function HomePage() {
     },
   });
 
+  const deleteKeywordMutation = useMutation({
+    mutationFn: directus.deleteKeyword,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["keywords", selectedCampaign] });
+      toast({ title: "Keyword deleted" });
+    },
+  });
+
   const addKeywordMutation = useMutation({
     mutationFn: async (data: { keyword: string }) => {
       if (!selectedCampaign) {
@@ -84,9 +92,18 @@ export default function HomePage() {
   });
 
   const handleCampaignSelect = (campaignId: string, e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent default button behavior
+    e.preventDefault();
     setSelectedCampaign(campaignId);
     setActiveTab("keywords");
+  };
+
+  const handleDeleteKeyword = async (keywordId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    try {
+      await deleteKeywordMutation.mutateAsync(keywordId);
+    } catch (error) {
+      console.error('Failed to delete keyword:', error);
+    }
   };
 
   return (
@@ -104,7 +121,13 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <Form {...campaignForm}>
-                <form onSubmit={campaignForm.handleSubmit((data) => addCampaignMutation.mutate(data))} className="space-y-4">
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    campaignForm.handleSubmit((data) => addCampaignMutation.mutate(data))(e);
+                  }} 
+                  className="space-y-4"
+                >
                   <FormField
                     control={campaignForm.control}
                     name="name"
@@ -130,7 +153,11 @@ export default function HomePage() {
                     )}
                   />
                   <Button type="submit" disabled={addCampaignMutation.isPending}>
-                    {addCampaignMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                    {addCampaignMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4 mr-2" />
+                    )}
                     Add Campaign
                   </Button>
                 </form>
@@ -161,7 +188,9 @@ export default function HomePage() {
           {!selectedCampaign ? (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-center text-muted-foreground">Please select a campaign first</p>
+                <p className="text-center text-muted-foreground">
+                  Please select a campaign first
+                </p>
               </CardContent>
             </Card>
           ) : (
@@ -169,13 +198,19 @@ export default function HomePage() {
               <Card className="mb-4">
                 <CardContent className="pt-6 flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Current Campaign:</p>
+                    <p className="text-sm text-muted-foreground">
+                      Current Campaign:
+                    </p>
                     <p className="text-lg font-medium">
-                      {campaignsQuery.data?.find((c: any) => c.id === selectedCampaign)?.name}
+                      {
+                        campaignsQuery.data?.find(
+                          (c: any) => c.id === selectedCampaign
+                        )?.name
+                      }
                     </p>
                   </div>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={(e) => {
                       e.preventDefault();
                       setSelectedCampaign("");
@@ -193,7 +228,15 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <Form {...keywordForm}>
-                    <form onSubmit={keywordForm.handleSubmit((data) => addKeywordMutation.mutate(data))} className="space-y-4">
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        keywordForm.handleSubmit((data) =>
+                          addKeywordMutation.mutate(data)
+                        )(e);
+                      }}
+                      className="space-y-4"
+                    >
                       <FormField
                         control={keywordForm.control}
                         name="keyword"
@@ -207,7 +250,11 @@ export default function HomePage() {
                         )}
                       />
                       <Button type="submit" disabled={addKeywordMutation.isPending}>
-                        {addKeywordMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                        {addKeywordMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Plus className="h-4 w-4 mr-2" />
+                        )}
                         Add Keyword
                       </Button>
                     </form>
@@ -219,23 +266,28 @@ export default function HomePage() {
                 <Card key={keyword.id} className="mt-4">
                   <CardContent className="pt-4">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">{keyword.keyword}</h3>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          directus.deleteKeyword(keyword.id);
-                        }}
+                      <h3 className="text-lg font-semibold">
+                        {keyword.keyword}
+                      </h3>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => handleDeleteKeyword(keyword.id, e)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                    {(trendPredictions[keyword.keyword] || keyword.trend_prediction) && (
+                    {(trendPredictions[keyword.keyword] ||
+                      keyword.trend_prediction) && (
                       <div className="mt-2">
                         <AnimatedTrend
-                          trend={trendPredictions[keyword.keyword]?.prediction || keyword.trend_prediction}
-                          historicalData={trendPredictions[keyword.keyword]?.historicalData || []}
+                          trend={
+                            trendPredictions[keyword.keyword]?.prediction ||
+                            keyword.trend_prediction
+                          }
+                          historicalData={
+                            trendPredictions[keyword.keyword]?.historicalData || []
+                          }
                         />
                       </div>
                     )}
