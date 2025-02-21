@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { AnimatedTrend } from "@/components/animated-trend";
 
 const addCampaignSchema = z.object({
@@ -91,20 +91,34 @@ export default function HomePage() {
     defaultValues: { keyword: "" },
   });
 
-  const handleCampaignSelect = (campaignId: string, e: React.MouseEvent) => {
+  const handleCampaignSelect = useCallback((campaignId: string, e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setSelectedCampaign(campaignId);
     setActiveTab("keywords");
-  };
+  }, []);
 
-  const handleDeleteKeyword = async (keywordId: string, e: React.MouseEvent) => {
+  const handleDeleteKeyword = useCallback(async (keywordId: string, e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     try {
       await deleteKeywordMutation.mutateAsync(keywordId);
     } catch (error) {
       console.error('Failed to delete keyword:', error);
     }
-  };
+  }, [deleteKeywordMutation]);
+
+  const handleSubmitCampaign = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    campaignForm.handleSubmit((data) => addCampaignMutation.mutate(data))(e);
+  }, [campaignForm, addCampaignMutation]);
+
+  const handleSubmitKeyword = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    keywordForm.handleSubmit((data) => addKeywordMutation.mutate(data))(e);
+  }, [keywordForm, addKeywordMutation]);
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -121,13 +135,7 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <Form {...campaignForm}>
-                <form 
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    campaignForm.handleSubmit((data) => addCampaignMutation.mutate(data))(e);
-                  }} 
-                  className="space-y-4"
-                >
+                <form onSubmit={handleSubmitCampaign} className="space-y-4">
                   <FormField
                     control={campaignForm.control}
                     name="name"
@@ -213,6 +221,7 @@ export default function HomePage() {
                     variant="outline"
                     onClick={(e) => {
                       e.preventDefault();
+                      e.stopPropagation();
                       setSelectedCampaign("");
                       setActiveTab("campaigns");
                     }}
@@ -228,15 +237,7 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <Form {...keywordForm}>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        keywordForm.handleSubmit((data) =>
-                          addKeywordMutation.mutate(data)
-                        )(e);
-                      }}
-                      className="space-y-4"
-                    >
+                    <form onSubmit={handleSubmitKeyword} className="space-y-4">
                       <FormField
                         control={keywordForm.control}
                         name="keyword"
