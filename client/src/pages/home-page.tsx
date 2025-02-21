@@ -169,6 +169,18 @@ export default function HomePage() {
             </Card>
           ) : (
             <>
+              <Card className="mb-4">
+                <CardContent className="pt-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Current Campaign:</p>
+                    <p className="text-lg font-medium">{campaignsQuery.data?.find(c => c.id === selectedCampaign)?.name}</p>
+                  </div>
+                  <Button variant="outline" onClick={() => setSelectedCampaign("")}>
+                    Change Campaign
+                  </Button>
+                </CardContent>
+              </Card>
+            <>
               <Card>
                 <CardHeader>
                   <CardTitle>Add Keyword</CardTitle>
