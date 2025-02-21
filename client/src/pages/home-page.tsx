@@ -91,34 +91,18 @@ export default function HomePage() {
     defaultValues: { keyword: "" },
   });
 
-  const handleCampaignSelect = useCallback((campaignId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleCampaignSelect = useCallback((campaignId: string) => {
     setSelectedCampaign(campaignId);
     setActiveTab("keywords");
   }, []);
 
-  const handleDeleteKeyword = useCallback(async (keywordId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDeleteKeyword = useCallback(async (keywordId: string) => {
     try {
       await deleteKeywordMutation.mutateAsync(keywordId);
     } catch (error) {
       console.error('Failed to delete keyword:', error);
     }
   }, [deleteKeywordMutation]);
-
-  const handleSubmitCampaign = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    campaignForm.handleSubmit((data) => addCampaignMutation.mutate(data))(e);
-  }, [campaignForm, addCampaignMutation]);
-
-  const handleSubmitKeyword = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    keywordForm.handleSubmit((data) => addKeywordMutation.mutate(data))(e);
-  }, [keywordForm, addKeywordMutation]);
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -135,7 +119,13 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <Form {...campaignForm}>
-                <form onSubmit={handleSubmitCampaign} className="space-y-4">
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    campaignForm.handleSubmit((data) => addCampaignMutation.mutate(data))(e);
+                  }} 
+                  className="space-y-4"
+                >
                   <FormField
                     control={campaignForm.control}
                     name="name"
@@ -181,9 +171,10 @@ export default function HomePage() {
               <CardContent>
                 <p className="text-sm text-gray-500">{campaign.description}</p>
                 <Button
+                  type="button"
                   variant="secondary"
                   className="mt-2"
-                  onClick={(e) => handleCampaignSelect(campaign.id, e)}
+                  onClick={() => handleCampaignSelect(campaign.id)}
                 >
                   View Keywords
                 </Button>
@@ -218,10 +209,9 @@ export default function HomePage() {
                     </p>
                   </div>
                   <Button
+                    type="button"
                     variant="outline"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
+                    onClick={() => {
                       setSelectedCampaign("");
                       setActiveTab("campaigns");
                     }}
@@ -237,7 +227,13 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <Form {...keywordForm}>
-                    <form onSubmit={handleSubmitKeyword} className="space-y-4">
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        keywordForm.handleSubmit((data) => addKeywordMutation.mutate(data))(e);
+                      }}
+                      className="space-y-4"
+                    >
                       <FormField
                         control={keywordForm.control}
                         name="keyword"
@@ -271,9 +267,10 @@ export default function HomePage() {
                         {keyword.keyword}
                       </h3>
                       <Button
+                        type="button"
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => handleDeleteKeyword(keyword.id, e)}
+                        onClick={() => handleDeleteKeyword(keyword.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
