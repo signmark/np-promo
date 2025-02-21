@@ -30,16 +30,15 @@ const addCampaignSchema = z.object({
 
 const addKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword is required"),
-  campaign_id: z.string().min(1, "Campaign is required"),
 });
 
 type AddCampaignInput = z.infer<typeof addCampaignSchema>;
-type AddKeywordInput = z.infer<typeof addKeywordSchema>;
 
 export default function HomePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedCampaign, setSelectedCampaign] = useState<string>("");
+  const [activeTab, setActiveTab] = useState("campaigns");
   const [trendPredictions, setTrendPredictions] = useState<Record<string, any>>({});
 
   const campaignsQuery = useQuery({
@@ -60,17 +59,17 @@ export default function HomePage() {
       setSelectedCampaign(data.id);
       campaignForm.reset();
       toast({ title: "Campaign added" });
-
-      // Switch to keywords tab after campaign creation
-      const keywordsTab = document.querySelector('[value="keywords"]') as HTMLElement;
-      if (keywordsTab) {
-        keywordsTab.click();
-      }
+      setActiveTab("keywords");
     },
   });
 
   const addKeywordMutation = useMutation({
-    mutationFn: (data: AddKeywordInput) => directus.addKeyword(data.keyword, data.campaign_id),
+    mutationFn: (data: { keyword: string }) => {
+      if (!selectedCampaign) {
+        throw new Error("Please select a campaign first");
+      }
+      return directus.addKeyword(data.keyword, selectedCampaign);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["keywords", selectedCampaign] });
       keywordForm.reset();
@@ -83,14 +82,20 @@ export default function HomePage() {
     defaultValues: { name: "", description: "" },
   });
 
-  const keywordForm = useForm<AddKeywordInput>({
+  const keywordForm = useForm({
     resolver: zodResolver(addKeywordSchema),
-    defaultValues: { keyword: "", campaign_id: "" },
+    defaultValues: { keyword: "" },
   });
+
+  const handleCampaignSelect = (campaignId: string) => {
+    console.log('Selecting campaign:', campaignId);
+    setSelectedCampaign(campaignId);
+    setActiveTab("keywords");
+  };
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
-      <Tabs defaultValue="campaigns">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="keywords">Keywords</TabsTrigger>
@@ -147,14 +152,7 @@ export default function HomePage() {
                 <Button
                   variant="secondary"
                   className="mt-2"
-                  onClick={() => {
-                    setSelectedCampaign(campaign.id);
-                    const keywordsTab = document.querySelector('[value="keywords"]') as HTMLElement;
-                    if (keywordsTab) {
-                      keywordsTab.click();
-                      keywordsQuery.refetch();
-                    }
-                  }}
+                  onClick={() => handleCampaignSelect(campaign.id)}
                 >
                   View Keywords
                 </Button>
@@ -180,7 +178,10 @@ export default function HomePage() {
                       {campaignsQuery.data?.find((c: Campaign) => c.id === selectedCampaign)?.name}
                     </p>
                   </div>
-                  <Button variant="outline" onClick={() => setSelectedCampaign("")}>
+                  <Button variant="outline" onClick={() => {
+                    setSelectedCampaign("");
+                    setActiveTab("campaigns");
+                  }}>
                     Change Campaign
                   </Button>
                 </CardContent>
@@ -195,7 +196,6 @@ export default function HomePage() {
                     <form onSubmit={keywordForm.handleSubmit((data) => {
                       addKeywordMutation.mutate({
                         keyword: data.keyword,
-                        campaign_id: selectedCampaign
                       });
                     })} className="space-y-4">
                       <FormField
