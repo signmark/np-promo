@@ -243,7 +243,7 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     const trend_score = Math.round(lastShows.reduce((sum, item) => sum + item.shows, 0) / lastShows.length);
     const mentions_count = wordstatData.response.data.sources?.reduce((sum, source) => sum + source.count, 0) || 0;
 
-    // Create keyword first
+    // Create the base keyword payload
     const keywordPayload = {
       user_id: userId,
       keyword: keyword,
@@ -252,39 +252,48 @@ export async function addKeyword(keyword: string, campaignId?: string) {
       last_checked: new Date().toISOString()
     };
 
-    console.log('Creating keyword with payload:', keywordPayload);
+    console.log('Creating keyword with initial payload:', keywordPayload);
+
+    // Create the keyword first
     const keywordResponse = await client.post('/items/user_keywords', keywordPayload);
-    const newKeywordId = keywordResponse.data.data.id;
-    console.log('Created keyword with ID:', newKeywordId);
+    const newKeyword = keywordResponse.data.data;
+    console.log('Created keyword:', newKeyword);
 
-    // If campaignId is provided, create the relationship using UUIDs
-    if (campaignId && newKeywordId) {
+    // If campaignId is provided, create the M2M relationship
+    if (campaignId && newKeyword.id) {
+      console.log('Creating M2M relationship between keyword and campaign');
+      const relationPayload = {
+        user_keywords_campaigns: {
+          keyword_id: newKeyword.id,
+          campaign_id: campaignId
+        }
+      };
+
+      // Create the relationship
       try {
-        const relationPayload = {
-          // Ensure both IDs are valid UUIDs
-          keyword_id: newKeywordId.toString(),
-          campaign_id: campaignId.toString()
-        };
-
-        console.log('Creating relationship with payload:', relationPayload);
-        const relationResponse = await client.post('/items/user_keywords_campaigns', relationPayload);
-        console.log('Relationship created:', relationResponse.data);
+        const relationResponse = await client.post('/items/user_keywords_campaigns', relationPayload.user_keywords_campaigns);
+        console.log('Created relationship:', relationResponse.data);
       } catch (relationError) {
         console.error('Failed to create relationship:', relationError);
-        // Even if relation creation fails, return the keyword
+        if (axios.isAxiosError(relationError)) {
+          console.error('API Error details:', {
+            status: relationError.response?.status,
+            data: relationError.response?.data
+          });
+        }
+        throw new Error('Failed to add keyword to campaign');
       }
     }
 
-    return keywordResponse.data.data;
+    return newKeyword;
   } catch (error) {
     console.error('Add keyword error:', error);
     if (axios.isAxiosError(error)) {
-      if (error.response?.status === 401) {
-        throw new Error('Session expired. Please login again.');
-      }
-      const errorMessage = error.response?.data?.errors?.[0]?.message || 'Failed to add keyword';
-      console.error('Detailed error:', error.response?.data);
-      throw new Error(errorMessage);
+      console.error('API Error details:', {
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to add keyword');
     }
     throw error;
   }
