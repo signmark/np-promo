@@ -56,7 +56,7 @@ export default function HomePage() {
       setSelectedCampaign(data.id);
       campaignForm.reset();
       toast({ title: "Campaign added" });
-      
+
       // Switch to keywords tab after campaign creation
       const keywordsTab = document.querySelector('[value="keywords"]') as HTMLElement;
       if (keywordsTab) {
@@ -180,7 +180,7 @@ export default function HomePage() {
                   </Button>
                 </CardContent>
               </Card>
-            <>
+
               <Card>
                 <CardHeader>
                   <CardTitle>Add Keyword</CardTitle>
@@ -198,13 +198,13 @@ export default function HomePage() {
                             }))
                             .filter(item => item.shows > 0)
                             .slice(0, 10);
-                          
+
                           // Add original keyword first
                           addKeywordMutation.mutate({ 
                             keyword: data.keyword,
                             campaign_id: selectedCampaign 
                           });
-                          
+
                           // Add suggested keywords
                           suggestions.forEach(suggestion => {
                             addKeywordMutation.mutate({
@@ -237,29 +237,29 @@ export default function HomePage() {
                   </Form>
                 </CardContent>
               </Card>
+
+              {keywordsQuery.data?.map((keyword) => (
+                <Card key={keyword.id} className="mt-4">
+                  <CardContent className="pt-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-semibold">{keyword.keyword}</h3>
+                      <Button variant="ghost" size="icon" onClick={() => directus.deleteKeyword(keyword.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {(trendPredictions[keyword.keyword] || keyword.trend_prediction) && (
+                      <div className="mt-2">
+                        <AnimatedTrend
+                          trend={trendPredictions[keyword.keyword]?.prediction || keyword.trend_prediction}
+                          historicalData={trendPredictions[keyword.keyword]?.historicalData || []}
+                        />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
             </>
           )}
-
-          {keywordsQuery.data?.map((keyword) => (
-            <Card key={keyword.id} className="mt-4">
-              <CardContent className="pt-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">{keyword.keyword}</h3>
-                  <Button variant="ghost" size="icon" onClick={() => directus.deleteKeyword(keyword.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-                {(trendPredictions[keyword.keyword] || keyword.trend_prediction) && (
-                  <div className="mt-2">
-                    <AnimatedTrend
-                      trend={trendPredictions[keyword.keyword]?.prediction || keyword.trend_prediction}
-                      historicalData={trendPredictions[keyword.keyword]?.historicalData || []}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
         </TabsContent>
       </Tabs>
     </div>
