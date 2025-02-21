@@ -141,7 +141,7 @@ export async function getKeywords(campaignId?: string) {
     };
 
     if (campaignId) {
-      filter._and.push({ campaign_id: { _eq: campaignId } });
+      filter._and.push({ campaign: { id: { _eq: campaignId } } });
     }
 
     const url = `/items/user_keywords?fields=*,campaign.*&filter=${JSON.stringify(filter)}`;
@@ -250,7 +250,7 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     };
 
     if (campaignId) {
-      filter._and.push({ campaign_id: { _eq: campaignId } });
+      filter._and.push({ campaign: { id: { _eq: campaignId } } });
     }
 
     const exists = await checkKeywordExists(keyword);
@@ -268,7 +268,7 @@ export async function addKeyword(keyword: string, campaignId?: string) {
 
     const payload = {
       user_id: userId,
-      campaign_id: campaignId,
+      campaign: campaignId ? { id: campaignId } : null,
       keyword: keyword,
       type: "main",
       trend_score,
