@@ -133,7 +133,7 @@ export default function HomePage() {
       if (!selectedCampaign) {
         throw new Error("Please select a campaign first");
       }
-      return directus.addKeyword(data.keyword);
+      return directus.addKeyword(data.keyword, selectedCampaign);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["keywords", selectedCampaign] });
@@ -171,13 +171,6 @@ export default function HomePage() {
       console.error('Failed to delete keyword:', error);
     }
   }, [deleteKeywordMutation]);
-
-  // Log auth state changes - moved to useEffect above
-  //useEffect(() => {
-  //  console.log('Auth state changed - user:', user);
-  //  console.log('Local storage user_id:', localStorage.getItem('user_id'));
-  //  console.log('Local storage token:', !!localStorage.getItem('directus_token'));
-  //}, [user]);
 
 
   if (!isAuthenticated) {

@@ -130,15 +130,10 @@ export async function getKeywords(campaignId?: string) {
       throw new Error('User ID not found. Please login again.');
     }
 
-    console.log('Fetching keywords for user:', userId, 'campaign:', campaignId);
+    console.log('Fetching keywords for user:', userId);
 
-    // Базовый URL с фильтрацией по user_id
-    let url = `/items/user_keywords?fields=*&filter[user_id][_eq]=${userId}`;
-
-    // Добавляем фильтр по campaign_id если он указан
-    if (campaignId) {
-      url += `&filter[campaign_id][_eq]=${campaignId}`;
-    }
+    // Временно убираем фильтрацию по campaign_id, пока поле не добавлено
+    const url = `/items/user_keywords?fields=*&filter[user_id][_eq]=${userId}`;
 
     const response = await client.get(url);
     console.log('Keywords API response:', response);
@@ -151,7 +146,6 @@ export async function getKeywords(campaignId?: string) {
   } catch (error) {
     console.error('Get keywords error:', error);
     if (axios.isAxiosError(error)) {
-      // Добавляем больше информации об ошибке в консоль
       console.error('API Error details:', {
         status: error.response?.status,
         data: error.response?.data,
@@ -159,10 +153,8 @@ export async function getKeywords(campaignId?: string) {
       });
 
       if (error.response?.status === 401 || error.response?.status === 403) {
-        // Проверяем токен в localStorage
         const token = localStorage.getItem('directus_token');
         console.log('Current token exists:', !!token);
-
         throw new Error('Session expired or insufficient permissions. Please login again.');
       }
       throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to fetch keywords');
@@ -228,10 +220,10 @@ export async function checkKeywordExists(keyword: string): Promise<boolean> {
   }
 }
 
-export async function addKeyword(keyword: string) {
+export async function addKeyword(keyword: string, campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
-    console.log('Adding keyword with user_id:', userId);
+    console.log('Adding keyword with user_id:', userId, 'campaign_id:', campaignId);
 
     if (!userId) {
       throw new Error('User ID not found. Please login again.');
@@ -253,6 +245,7 @@ export async function addKeyword(keyword: string) {
 
     const payload = {
       user_id: userId,
+      campaign_id: campaignId || null,
       keyword: keyword,
       type: "main",
       trend_score,
