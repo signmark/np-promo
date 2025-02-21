@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useState, useCallback } from "react";
 import { AnimatedTrend } from "@/components/animated-trend";
+import { NavigationProgress } from "@/components/ui/navigation-progress";
 
 const addCampaignSchema = z.object({
   name: z.string().min(1, "Campaign name is required"),
@@ -31,11 +32,17 @@ const addKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword is required"),
 });
 
+const TOTAL_STEPS = 2; // Campaigns and Keywords tabs
+
 export default function HomePage() {
   const { toast } = useToast();
   const [selectedCampaign, setSelectedCampaign] = useState("");
   const [activeTab, setActiveTab] = useState("campaigns");
   const [trendPredictions, setTrendPredictions] = useState<Record<string, any>>({});
+
+  const getCurrentStep = () => {
+    return activeTab === "campaigns" ? 0 : 1;
+  };
 
   const campaignsQuery = useQuery({
     queryKey: ["campaigns"],
@@ -106,6 +113,10 @@ export default function HomePage() {
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
+      <NavigationProgress 
+        currentStep={getCurrentStep()} 
+        totalSteps={TOTAL_STEPS} 
+      />
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
