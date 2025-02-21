@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm, UseFormHandleSubmit } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as directus from "@/lib/directus";
@@ -29,12 +29,12 @@ const addCampaignSchema = z.object({
 
 const addKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword is required"),
-  campaign_id: z.string().min(1, "Campaign is required"),
 });
 
 export default function HomePage() {
   const { toast } = useToast();
   const [selectedCampaign, setSelectedCampaign] = useState("");
+  const [activeTab, setActiveTab] = useState("campaigns");
   const [trendPredictions, setTrendPredictions] = useState<Record<string, any>>({});
 
   const campaignsQuery = useQuery({
@@ -45,7 +45,7 @@ export default function HomePage() {
   const keywordsQuery = useQuery({
     queryKey: ["keywords", selectedCampaign],
     queryFn: () => directus.getKeywords(selectedCampaign),
-    enabled: true, // Allow query to run even without selectedCampaign
+    enabled: true,
   });
 
   const addCampaignMutation = useMutation({
@@ -55,21 +55,16 @@ export default function HomePage() {
       setSelectedCampaign(data.id);
       campaignForm.reset();
       toast({ title: "Campaign added" });
-
-      // Switch to keywords tab after campaign creation
-      const keywordsTab = document.querySelector('[value="keywords"]') as HTMLElement;
-      if (keywordsTab) {
-        keywordsTab.click();
-      }
+      setActiveTab("keywords");
     },
   });
 
   const addKeywordMutation = useMutation({
-    mutationFn: async (data: { keyword: string; campaign_id: string }) => {
-      if (!data.campaign_id) {
+    mutationFn: async (data: { keyword: string }) => {
+      if (!selectedCampaign) {
         throw new Error("Please select a campaign first");
       }
-      return directus.addKeyword(data.keyword, data.campaign_id);
+      return directus.addKeyword(data.keyword);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["keywords", selectedCampaign] });
@@ -85,25 +80,18 @@ export default function HomePage() {
 
   const keywordForm = useForm({
     resolver: zodResolver(addKeywordSchema),
-    defaultValues: { keyword: "", campaign_id: selectedCampaign },
+    defaultValues: { keyword: "" },
   });
 
-  // Update form when selectedCampaign changes
-  useEffect(() => {
-    keywordForm.setValue("campaign_id", selectedCampaign);
-  }, [selectedCampaign, keywordForm]);
-
-  const handleCampaignSelect = (campaignId: string) => {
+  const handleCampaignSelect = (campaignId: string, e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default button behavior
     setSelectedCampaign(campaignId);
-    const keywordsTab = document.querySelector('[value="keywords"]') as HTMLElement;
-    if (keywordsTab) {
-      keywordsTab.click();
-    }
+    setActiveTab("keywords");
   };
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
-      <Tabs defaultValue="campaigns">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="keywords">Keywords</TabsTrigger>
@@ -160,7 +148,7 @@ export default function HomePage() {
                 <Button
                   variant="secondary"
                   className="mt-2"
-                  onClick={() => handleCampaignSelect(campaign.id)}
+                  onClick={(e) => handleCampaignSelect(campaign.id, e)}
                 >
                   View Keywords
                 </Button>
@@ -186,7 +174,14 @@ export default function HomePage() {
                       {campaignsQuery.data?.find((c: any) => c.id === selectedCampaign)?.name}
                     </p>
                   </div>
-                  <Button variant="outline" onClick={() => setSelectedCampaign("")}>
+                  <Button 
+                    variant="outline" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setSelectedCampaign("");
+                      setActiveTab("campaigns");
+                    }}
+                  >
                     Change Campaign
                   </Button>
                 </CardContent>
@@ -198,36 +193,7 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <Form {...keywordForm}>
-                    <form onSubmit={keywordForm.handleSubmit(async (data) => {
-                      try {
-                        const wordstatData = await directus.getWordstatData(data.keyword);
-                        if (wordstatData?.response?.data?.shows) {
-                          const suggestions = wordstatData.response.data.shows
-                            .map((item, index) => ({
-                              keyword: `${data.keyword} ${index + 1}`,
-                              shows: item.shows
-                            }))
-                            .filter(item => item.shows > 0)
-                            .slice(0, 10);
-
-                          // Add original keyword first
-                          addKeywordMutation.mutate({
-                            keyword: data.keyword,
-                            campaign_id: selectedCampaign
-                          });
-
-                          // Add suggested keywords
-                          suggestions.forEach(suggestion => {
-                            addKeywordMutation.mutate({
-                              keyword: suggestion.keyword,
-                              campaign_id: selectedCampaign
-                            });
-                          });
-                        }
-                      } catch (error) {
-                        console.error('WordStat error:', error);
-                      }
-                    })} className="space-y-4">
+                    <form onSubmit={keywordForm.handleSubmit((data) => addKeywordMutation.mutate(data))} className="space-y-4">
                       <FormField
                         control={keywordForm.control}
                         name="keyword"
@@ -242,7 +208,7 @@ export default function HomePage() {
                       />
                       <Button type="submit" disabled={addKeywordMutation.isPending}>
                         {addKeywordMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
-                        Add Keyword with Suggestions
+                        Add Keyword
                       </Button>
                     </form>
                   </Form>
@@ -254,7 +220,14 @@ export default function HomePage() {
                   <CardContent className="pt-4">
                     <div className="flex justify-between items-center">
                       <h3 className="text-lg font-semibold">{keyword.keyword}</h3>
-                      <Button variant="ghost" size="icon" onClick={() => directus.deleteKeyword(keyword.id)}>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          directus.deleteKeyword(keyword.id);
+                        }}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
