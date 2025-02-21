@@ -131,18 +131,38 @@ export async function getKeywords(campaignId?: string) {
     }
 
     console.log('Fetching keywords for user:', userId, 'campaign:', campaignId);
-    let url = `/items/user_keywords?sort=-id&filter[user_id][_eq]=${userId}`;
+
+    // Базовый URL с фильтрацией по user_id
+    let url = `/items/user_keywords?fields=*&filter[user_id][_eq]=${userId}`;
+
+    // Добавляем фильтр по campaign_id если он указан
     if (campaignId) {
       url += `&filter[campaign_id][_eq]=${campaignId}`;
     }
 
-    const { data } = await client.get<{ data: KeywordWithTrend[] }>(url);
-    console.log('Received keywords:', data.data);
-    return data.data;
+    const response = await client.get(url);
+    console.log('Keywords API response:', response);
+
+    if (!response.data?.data) {
+      throw new Error('Invalid response format from API');
+    }
+
+    return response.data.data;
   } catch (error) {
     console.error('Get keywords error:', error);
     if (axios.isAxiosError(error)) {
+      // Добавляем больше информации об ошибке в консоль
+      console.error('API Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        headers: error.response?.headers
+      });
+
       if (error.response?.status === 401 || error.response?.status === 403) {
+        // Проверяем токен в localStorage
+        const token = localStorage.getItem('directus_token');
+        console.log('Current token exists:', !!token);
+
         throw new Error('Session expired or insufficient permissions. Please login again.');
       }
       throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to fetch keywords');
