@@ -130,11 +130,18 @@ export async function getKeywords(campaignId?: string) {
       throw new Error('User ID not found. Please login again.');
     }
 
-    console.log('Fetching keywords for user:', userId);
+    console.log('Fetching keywords for user:', userId, 'campaign:', campaignId);
 
-    // Временно убираем фильтрацию по campaign_id, пока поле не добавлено
-    const url = `/items/user_keywords?fields=*&filter[user_id][_eq]=${userId}`;
+    // Формируем фильтр с учетом campaign_id
+    const filter: Record<string, any> = {
+      user_id: { _eq: userId }
+    };
 
+    if (campaignId) {
+      filter.campaign_id = { _eq: campaignId };
+    }
+
+    const url = `/items/user_keywords?fields=*&filter=${JSON.stringify(filter)}`;
     const response = await client.get(url);
     console.log('Keywords API response:', response);
 
@@ -229,7 +236,16 @@ export async function addKeyword(keyword: string, campaignId?: string) {
       throw new Error('User ID not found. Please login again.');
     }
 
-    // Check if keyword already exists
+    // Check if keyword already exists for this campaign
+    const filter: Record<string, any> = {
+      keyword: { _eq: keyword },
+      user_id: { _eq: userId }
+    };
+
+    if (campaignId) {
+      filter.campaign_id = { _eq: campaignId };
+    }
+
     const exists = await checkKeywordExists(keyword);
     if (exists) {
       throw new Error('This keyword is already in your semantic core');
@@ -245,7 +261,7 @@ export async function addKeyword(keyword: string, campaignId?: string) {
 
     const payload = {
       user_id: userId,
-      campaign_id: campaignId || null,  // Убедимся, что campaign_id всегда передается
+      campaign_id: campaignId,  // Теперь передаем campaign_id напрямую
       keyword: keyword,
       type: "main",
       trend_score,
