@@ -45,20 +45,36 @@ export default function HomePage() {
     return activeTab === "campaigns" ? 0 : 1;
   };
 
+  // Fetch campaigns
   const campaignsQuery = useQuery({
     queryKey: ["campaigns"],
     queryFn: directus.getCampaigns,
     staleTime: 1000 * 60, // 1 minute
     retry: 3,
-    enabled: !!user
+    enabled: !!user,
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to load campaigns",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   });
 
+  // Fetch keywords for selected campaign
   const keywordsQuery = useQuery({
     queryKey: ["keywords", selectedCampaign],
     queryFn: () => directus.getKeywords(selectedCampaign),
     staleTime: 1000 * 60,
     retry: 3,
-    enabled: !!selectedCampaign && !!user
+    enabled: !!selectedCampaign && !!user,
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to load keywords",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   });
 
   const addCampaignMutation = useMutation({

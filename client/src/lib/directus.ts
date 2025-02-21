@@ -130,16 +130,21 @@ export async function getKeywords(campaignId?: string) {
       throw new Error('User ID not found. Please login again.');
     }
 
+    console.log('Fetching keywords for user:', userId, 'campaign:', campaignId);
     let url = `/items/user_keywords?sort=-id&filter[user_id][_eq]=${userId}`;
     if (campaignId) {
       url += `&filter[campaign_id][_eq]=${campaignId}`;
     }
 
     const { data } = await client.get<{ data: KeywordWithTrend[] }>(url);
+    console.log('Received keywords:', data.data);
     return data.data;
   } catch (error) {
     console.error('Get keywords error:', error);
     if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error('Session expired or insufficient permissions. Please login again.');
+      }
       throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to fetch keywords');
     }
     throw error;
@@ -399,9 +404,26 @@ export async function getKeywordWithTrendPrediction(keyword: string): Promise<Ke
 export { predictKeywordTrend } from './openai';
 
 export async function getCampaigns() {
-  const user_id = localStorage.getItem('user_id');
-  const { data } = await client.get(`/items/user_campaigns?filter[user_id][_eq]=${user_id}`);
-  return data.data;
+  try {
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+      throw new Error('User ID not found. Please login again.');
+    }
+
+    console.log('Fetching campaigns for user:', userId);
+    const { data } = await client.get(`/items/user_campaigns?filter[user_id][_eq]=${userId}`);
+    console.log('Received campaigns:', data.data);
+    return data.data;
+  } catch (error) {
+    console.error('Get campaigns error:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error('Session expired or insufficient permissions. Please login again.');
+      }
+      throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to fetch campaigns');
+    }
+    throw error;
+  }
 }
 
 export async function addCampaign(data: { name: string; description?: string }) {
