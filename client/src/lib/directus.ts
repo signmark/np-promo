@@ -136,10 +136,12 @@ export async function getKeywords(campaignId?: string) {
     let url = `/items/user_keywords?filter[user_id][_eq]=${userId}`;
 
     if (campaignId) {
+      // Используем junction table для фильтрации
       url += `&filter[user_keywords_campaigns][campaign_id][_eq]=${campaignId}`;
     }
 
-    url += '&fields=*,user_keywords_campaigns.campaign_id';
+    // Запрашиваем связанные данные
+    url += '&fields=*,user_keywords_campaigns.campaign_id,user_keywords_campaigns.keyword_id';
 
     console.log('Request URL:', url);
     const response = await client.get(url);
@@ -245,9 +247,15 @@ export async function addKeyword(keyword: string, campaignId?: string) {
       type: "main",
       trend_score: trend_score.toString(),
       mentions_count: mentions_count.toString(),
-      // Обновляем формат для создания связи с кампанией
-      campaigns: campaignId ? [campaignId] : []
+      user_keywords_campaigns: campaignId ? {
+        create: [
+          {
+            campaign_id: campaignId
+          }
+        ]
+      } : undefined
     };
+
     console.log('Request payload:', payload);
 
     const { data } = await client.post('/items/user_keywords', payload);
