@@ -131,37 +131,26 @@ export async function getKeywords(campaignId?: string) {
       throw new Error('User ID not found. Please login again.');
     }
 
-    console.log('Fetching keywords for user:', userId, 'campaign:', campaignId);
+    console.log('Fetching keywords for campaign:', campaignId);
 
     if (campaignId) {
-      // First get the keyword IDs from the junction table
-      const junctionResponse = await client.get(`/items/user_keywords_campaigns?filter[campaign_id][_eq]=${campaignId}`);
-      console.log('Junction table response:', junctionResponse.data);
-
-      const keywordIds = junctionResponse.data.data.map((item: any) => item.keyword_id);
-      console.log('Found keyword IDs:', keywordIds);
-
-      if (keywordIds.length === 0) {
-        return [];
-      }
-
-      // Then get the actual keywords
-      const keywordResponse = await client.get(`/items/user_keywords?filter[id][_in]=${keywordIds.join(',')}&filter[user_id][_eq]=${userId}`);
-      console.log('Keywords response:', keywordResponse.data);
-      return keywordResponse.data.data;
+      // Get keywords for specific campaign
+      const response = await client.get(`/items/user_keywords?filter[campaign_id][_eq]=${campaignId}`);
+      console.log('Keywords response:', response.data);
+      return response.data.data;
     } else {
-      // If no campaign ID, just get all user's keywords
-      const response = await client.get(`/items/user_keywords?filter[user_id][_eq]=${userId}`);
+      // If no campaign ID, get all user's keywords through campaigns
+      const campaignsResponse = await client.get(`/items/user_campaigns?filter[user_id][_eq]=${userId}`);
+      const campaignIds = campaignsResponse.data.data.map((c: any) => c.id);
+
+      if (campaignIds.length === 0) return [];
+
+      const response = await client.get(`/items/user_keywords?filter[campaign_id][_in]=${campaignIds.join(',')}`);
       return response.data.data;
     }
   } catch (error) {
     console.error('Get keywords error:', error);
     if (axios.isAxiosError(error)) {
-      console.error('API Error details:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        headers: error.response?.headers
-      });
       throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to fetch keywords');
     }
     throw error;
@@ -226,15 +215,8 @@ export async function checkKeywordExists(keyword: string): Promise<boolean> {
 }
 
 // Modify addKeyword function to handle UUIDs properly
-export async function addKeyword(keyword: string, campaignId?: string) {
+export async function addKeyword(keyword: string, campaignId: string) {
   try {
-    const userId = localStorage.getItem('user_id');
-    console.log('Adding keyword with user_id:', userId, 'campaign_id:', campaignId);
-
-    if (!userId) {
-      throw new Error('User ID not found. Please login again.');
-    }
-
     // Get WordStat data first
     const wordstatData = await getWordstatData(keyword);
     console.log('Received WordStat data:', wordstatData);
@@ -243,25 +225,19 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     const trend_score = Math.round(lastShows.reduce((sum, item) => sum + item.shows, 0) / lastShows.length);
     const mentions_count = wordstatData.response.data.sources?.reduce((sum, source) => sum + source.count, 0) || 0;
 
-    // Prepare the keyword payload with campaign relationship
+    // Create keyword with campaign_id
     const keywordPayload = {
-      user_id: userId,
+      campaign_id: campaignId,
       keyword: keyword,
       trend_score: trend_score.toString(),
       mentions_count: mentions_count.toString(),
-      last_checked: new Date().toISOString(),
-      // Add campaign relationship directly in the payload
-      user_keywords_campaigns: campaignId ? {
-        create: [{
-          campaign_id: campaignId
-        }]
-      } : undefined
+      last_checked: new Date().toISOString()
     };
 
     console.log('Creating keyword with payload:', keywordPayload);
     const keywordResponse = await client.post('/items/user_keywords', keywordPayload);
     const newKeyword = keywordResponse.data.data;
-    console.log('Created keyword with relationship:', newKeyword);
+    console.log('Created keyword:', newKeyword);
 
     return newKeyword;
   } catch (error) {

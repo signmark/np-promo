@@ -32,26 +32,26 @@ const addKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword is required"),
 });
 
-type AddCampaignInput = z.infer<typeof addCampaignSchema>;
-
 export default function HomePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedCampaign, setSelectedCampaign] = useState<string>("");
   const [activeTab, setActiveTab] = useState("campaigns");
-  const [trendPredictions, setTrendPredictions] = useState<Record<string, any>>({});
 
+  // Query campaigns
   const campaignsQuery = useQuery({
     queryKey: ["campaigns"],
     queryFn: directus.getCampaigns,
   });
 
+  // Query keywords for selected campaign
   const keywordsQuery = useQuery({
     queryKey: ["keywords", selectedCampaign],
     queryFn: () => directus.getKeywords(selectedCampaign),
     enabled: !!selectedCampaign,
   });
 
+  // Add campaign mutation
   const addCampaignMutation = useMutation({
     mutationFn: directus.addCampaign,
     onSuccess: (data) => {
@@ -63,6 +63,7 @@ export default function HomePage() {
     },
   });
 
+  // Add keyword mutation
   const addKeywordMutation = useMutation({
     mutationFn: (data: { keyword: string }) => {
       if (!selectedCampaign) {
@@ -77,7 +78,7 @@ export default function HomePage() {
     },
   });
 
-  const campaignForm = useForm<AddCampaignInput>({
+  const campaignForm = useForm({
     resolver: zodResolver(addCampaignSchema),
     defaultValues: { name: "", description: "" },
   });
@@ -88,10 +89,18 @@ export default function HomePage() {
   });
 
   const handleCampaignSelect = (campaignId: string) => {
-    console.log('Selecting campaign:', campaignId);
     setSelectedCampaign(campaignId);
     setActiveTab("keywords");
   };
+
+  // Delete keyword mutation
+  const deleteKeywordMutation = useMutation({
+    mutationFn: directus.deleteKeyword,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["keywords", selectedCampaign] });
+      toast({ title: "Keyword deleted" });
+    },
+  });
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -194,9 +203,7 @@ export default function HomePage() {
                 <CardContent>
                   <Form {...keywordForm}>
                     <form onSubmit={keywordForm.handleSubmit((data) => {
-                      addKeywordMutation.mutate({
-                        keyword: data.keyword,
-                      });
+                      addKeywordMutation.mutate(data);
                     })} className="space-y-4">
                       <FormField
                         control={keywordForm.control}
@@ -224,17 +231,23 @@ export default function HomePage() {
                   <CardContent className="pt-4">
                     <div className="flex justify-between items-center">
                       <h3 className="text-lg font-semibold">{keyword.keyword}</h3>
-                      <Button variant="ghost" size="icon" onClick={() => directus.deleteKeyword(keyword.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {(trendPredictions[keyword.keyword] || keyword.trend_prediction) && (
-                      <div className="mt-2">
-                        <AnimatedTrend
-                          trend={trendPredictions[keyword.keyword]?.prediction || keyword.trend_prediction}
-                          historicalData={trendPredictions[keyword.keyword]?.historicalData || []}
-                        />
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-muted-foreground">
+                          Trend: {keyword.trend_score || 'N/A'}
+                        </p>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => deleteKeywordMutation.mutate(keyword.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
+                    </div>
+                    {keyword.mentions_count && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Mentions: {keyword.mentions_count}
+                      </p>
                     )}
                   </CardContent>
                 </Card>
