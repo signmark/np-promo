@@ -16,7 +16,7 @@ export const userCampaigns = pgTable('user_campaigns', {
 export const userKeywords = pgTable('user_keywords', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').notNull(),
-  campaignId: uuid('campaign_id').references(() => userCampaigns.id),
+  campaignId: uuid('campaign_id').array(),
   keyword: text('keyword').notNull(),
   trendScore: text('trend_score'),
   mentionsCount: text('mentions_count'),
@@ -28,11 +28,8 @@ export const userCampaignsRelations = relations(userCampaigns, ({ many }) => ({
   keywords: many(userKeywords),
 }));
 
-export const userKeywordsRelations = relations(userKeywords, ({ one }) => ({
-  campaign: one(userCampaigns, {
-    fields: [userKeywords.campaignId],
-    references: [userCampaigns.id],
-  }),
+export const userKeywordsRelations = relations(userKeywords, ({ many }) => ({
+  campaigns: many(userCampaigns),
 }));
 
 // Zod schemas for validation
@@ -50,7 +47,7 @@ export const campaignSchema = z.object({
 
 export const keywordSchema = z.object({
   id: z.string(),
-  campaign_id: z.string(),
+  campaign_id: z.array(z.string()),
   keyword: z.string().min(1),
   user_id: z.string(),
   trend_score: z.number().optional(),

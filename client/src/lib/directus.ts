@@ -123,7 +123,7 @@ export async function getUserInfo() {
   }
 }
 
-// В функции getKeywords обновляем фильтр для правильной работы с campaign_id
+// В функции getKeywords обновляем фильтр
 export async function getKeywords(campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -133,7 +133,6 @@ export async function getKeywords(campaignId?: string) {
 
     console.log('Fetching keywords for user:', userId, 'campaign:', campaignId);
 
-    // Формируем фильтр с учетом кампании
     const filter = {
       _and: [
         { user_id: { _eq: userId } }
@@ -141,7 +140,7 @@ export async function getKeywords(campaignId?: string) {
     };
 
     if (campaignId) {
-      filter._and.push({ campaign_id: { _contains: campaignId } });
+      filter._and.push({ campaign_id: { _contains: [campaignId] } });
     }
 
     const url = `/items/user_keywords?filter=${JSON.stringify(filter)}`;
@@ -225,7 +224,7 @@ export async function checkKeywordExists(keyword: string): Promise<boolean> {
   }
 }
 
-// В функции addKeyword обновляем структуру payload
+// В функции addKeyword обновляем payload
 export async function addKeyword(keyword: string, campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -247,8 +246,8 @@ export async function addKeyword(keyword: string, campaignId?: string) {
       user_id: userId,
       keyword: keyword,
       type: "main",
-      trend_score,
-      mentions_count,
+      trend_score: trend_score.toString(),
+      mentions_count: mentions_count.toString(),
       campaign_id: campaignId ? [campaignId] : []
     };
     console.log('Request payload:', payload);
