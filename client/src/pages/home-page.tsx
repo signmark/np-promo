@@ -138,7 +138,12 @@ export default function HomePage() {
                   className="mt-2"
                   onClick={() => {
                     setSelectedCampaign(campaign.id);
-                    document.querySelector('[value="keywords"]')?.click();
+                    const keywordsTab = document.querySelector('[value="keywords"]') as HTMLElement;
+                    if (keywordsTab) {
+                      keywordsTab.click();
+                      // Force keyword query refetch
+                      keywordsQuery.refetch();
+                    }
                   }}
                 >
                   View Keywords
