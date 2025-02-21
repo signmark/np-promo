@@ -134,15 +134,18 @@ export async function getKeywords(campaignId?: string) {
     console.log('Fetching keywords for user:', userId, 'campaign:', campaignId);
 
     // Формируем фильтр с учетом кампании
-    const filter: Record<string, any> = {
-      user_id: { _eq: userId }
+    const filter = {
+      _and: [
+        { user_id: { _eq: userId } }
+      ]
     };
 
     if (campaignId) {
-      filter.campaign = { id: { _eq: campaignId } }; // Изменено с campaign_id на campaign.id
+      filter._and.push({ campaign_id: { _eq: campaignId } });
     }
 
-    const url = `/items/user_keywords?fields=*,campaign.id&filter=${JSON.stringify(filter)}`;
+    const url = `/items/user_keywords?fields=*,campaign.*&filter=${JSON.stringify(filter)}`;
+    console.log('Request URL:', url);
     const response = await client.get(url);
     console.log('Keywords API response:', response);
 
@@ -228,7 +231,7 @@ export async function checkKeywordExists(keyword: string): Promise<boolean> {
   }
 }
 
-// В функции addKeyword оставляем текущую структуру payload
+// В функции addKeyword обновляем структуру payload
 export async function addKeyword(keyword: string, campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -239,13 +242,15 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     }
 
     // Проверяем существование ключевого слова в этой кампании
-    const filter: Record<string, any> = {
-      keyword: { _eq: keyword },
-      user_id: { _eq: userId }
+    const filter = {
+      _and: [
+        { keyword: { _eq: keyword } },
+        { user_id: { _eq: userId } }
+      ]
     };
 
     if (campaignId) {
-      filter.campaign = { id: { _eq: campaignId } }; // Обновлено для соответствия структуре
+      filter._and.push({ campaign_id: { _eq: campaignId } });
     }
 
     const exists = await checkKeywordExists(keyword);
@@ -262,8 +267,8 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     const mentions_count = wordstatData.response.data.sources?.reduce((sum, source) => sum + source.count, 0) || 0;
 
     const payload = {
-      user_id: { id: userId },
-      campaign: campaignId ? { id: campaignId } : null,
+      user_id: userId,
+      campaign_id: campaignId,
       keyword: keyword,
       type: "main",
       trend_score,
@@ -271,7 +276,7 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     };
     console.log('Request payload:', payload);
 
-    const { data } = await client.post<{ data: Keyword }>('/items/user_keywords', payload);
+    const { data } = await client.post('/items/user_keywords', payload);
     console.log('Add keyword response:', data);
     return data.data;
   } catch (error) {
