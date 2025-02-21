@@ -243,23 +243,38 @@ export async function addKeyword(keyword: string, campaignId?: string) {
     const trend_score = Math.round(lastShows.reduce((sum, item) => sum + item.shows, 0) / lastShows.length);
     const mentions_count = wordstatData.response.data.sources?.reduce((sum, source) => sum + source.count, 0) || 0;
 
-    // Create the keyword payload including the campaign relationship
+    // First create the keyword
     const keywordPayload = {
       user_id: userId,
       keyword: keyword,
       trend_score: trend_score.toString(),
       mentions_count: mentions_count.toString(),
-      last_checked: new Date().toISOString(),
-      // Add the campaigns field for M2M relationship
-      campaigns: campaignId ? [campaignId] : []
+      last_checked: new Date().toISOString()
     };
 
     console.log('Creating keyword with payload:', keywordPayload);
-
-    // Create the keyword with the campaign relationship in a single request
     const keywordResponse = await client.post('/items/user_keywords', keywordPayload);
     const newKeyword = keywordResponse.data.data;
-    console.log('Created keyword with campaign relationship:', newKeyword);
+    console.log('Created keyword:', newKeyword);
+
+    // If campaignId is provided, create the relationship separately
+    if (campaignId) {
+      console.log('Creating keyword-campaign relationship');
+      try {
+        const relationshipPayload = {
+          keyword_id: newKeyword.id,
+          campaign_id: campaignId
+        };
+
+        const relationResponse = await client.post('/items/user_keywords_campaigns', relationshipPayload);
+        console.log('Created relationship:', relationResponse.data);
+      } catch (relationError) {
+        console.error('Failed to create relationship:', relationError);
+        // Delete the keyword if relationship creation fails
+        await client.delete(`/items/user_keywords/${newKeyword.id}`);
+        throw new Error('Failed to add keyword to campaign');
+      }
+    }
 
     return newKeyword;
   } catch (error) {
