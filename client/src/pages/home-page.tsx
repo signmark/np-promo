@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { AnimatedTrend } from "@/components/animated-trend";
 import { NavigationProgress } from "@/components/ui/navigation-progress";
 
@@ -52,7 +52,11 @@ export default function HomePage() {
     staleTime: 1000 * 60, // 1 minute
     retry: 3,
     enabled: !!user,
+    onSuccess: (data) => {
+      console.log('Campaigns loaded successfully:', data);
+    },
     onError: (error: Error) => {
+      console.error('Failed to load campaigns:', error);
       toast({
         title: "Failed to load campaigns",
         description: error.message,
@@ -68,7 +72,11 @@ export default function HomePage() {
     staleTime: 1000 * 60,
     retry: 3,
     enabled: !!selectedCampaign && !!user,
+    onSuccess: (data) => {
+      console.log('Keywords loaded successfully:', data);
+    },
     onError: (error: Error) => {
+      console.error('Failed to load keywords:', error);
       toast({
         title: "Failed to load keywords",
         description: error.message,
@@ -153,6 +161,13 @@ export default function HomePage() {
       console.error('Failed to delete keyword:', error);
     }
   }, [deleteKeywordMutation]);
+
+  // Log auth state changes
+  useEffect(() => {
+    console.log('Auth state changed - user:', user);
+    console.log('Local storage user_id:', localStorage.getItem('user_id'));
+    console.log('Local storage token:', !!localStorage.getItem('directus_token'));
+  }, [user]);
 
   // Wait for user data to be loaded
   if (!user) {
