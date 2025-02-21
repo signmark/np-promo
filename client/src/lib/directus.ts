@@ -180,29 +180,30 @@ export async function getWordstatData(keyword: string): Promise<WordstatResponse
     }
 
     const data = await response.json();
+    console.log('Raw WordStat data:', data);
 
-    // Validate and transform data structure
+    // Transform the data into the expected format
+    if (data?.content?.phrasesAssociations?.items) {
+      data.response = {
+        data: {
+          shows: data.content.phrasesAssociations.items.map((item: any) => ({
+            shows: parseInt(item.number.replace(/\s+/g, '')), // Remove spaces from numbers
+            phrase: item.phrase
+          }))
+        }
+      };
+    }
+
+    // Validate the transformed data
     if (!data?.response?.data?.shows || !Array.isArray(data.response.data.shows)) {
+      console.error('Invalid data structure:', data);
       throw new Error('Invalid WordStat data format');
     }
 
-    // Add phrase to each show item if it's in the top-level response
-    if (data.response.data.items) {
-      data.response.data.shows = data.response.data.items.map((item: any, index: number) => ({
-        shows: parseInt(item.number),
-        phrase: item.phrase
-      }));
-    }
-
-    // Ensure minimum data points
-    if (data.response.data.shows.length === 0) {
-      throw new Error('No suggestions found');
-    }
-
     // Sort by shows count descending
-    data.response.data.shows.sort((a: any, b: any) => b.shows - a.shows);
+    data.response.data.shows.sort((a, b) => b.shows - a.shows);
 
-    console.log('WordStat data received:', data);
+    console.log('Transformed WordStat data:', data);
     return data;
   } catch (error) {
     console.error('Wordstat API error:', error);

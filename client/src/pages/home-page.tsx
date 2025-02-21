@@ -53,11 +53,12 @@ export default function HomePage() {
     enabled: !!selectedCampaign,
   });
 
-  // Query WordStat suggestions
+  // Query WordStat suggestions with error handling
   const wordstatQuery = useQuery({
     queryKey: ["wordstat", searchTerm],
     queryFn: () => directus.getWordstatData(searchTerm),
-    enabled: searchTerm.length > 2, // Only search when user types at least 3 characters
+    enabled: searchTerm.length > 2,
+    retry: false,
   });
 
   // Add campaign mutation
@@ -80,7 +81,7 @@ export default function HomePage() {
       }
       // Add keywords one by one
       const results = await Promise.all(
-        keywords.map(keyword => directus.addKeyword(keyword, selectedCampaign))
+        keywords.map((keyword) => directus.addKeyword(keyword, selectedCampaign))
       );
       return results;
     },
@@ -117,7 +118,7 @@ export default function HomePage() {
   });
 
   const handleKeywordSelect = (keyword: string) => {
-    setSelectedKeywords(prev => {
+    setSelectedKeywords((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(keyword)) {
         newSet.delete(keyword);
@@ -151,7 +152,12 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <Form {...campaignForm}>
-                <form onSubmit={campaignForm.handleSubmit((data) => addCampaignMutation.mutate(data))} className="space-y-4">
+                <form
+                  onSubmit={campaignForm.handleSubmit((data) =>
+                    addCampaignMutation.mutate(data)
+                  )}
+                  className="space-y-4"
+                >
                   <FormField
                     control={campaignForm.control}
                     name="name"
@@ -177,7 +183,11 @@ export default function HomePage() {
                     )}
                   />
                   <Button type="submit" disabled={addCampaignMutation.isPending}>
-                    {addCampaignMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                    {addCampaignMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4 mr-2" />
+                    )}
                     Add Campaign
                   </Button>
                 </form>
@@ -208,7 +218,9 @@ export default function HomePage() {
           {!selectedCampaign ? (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-center text-muted-foreground">Please select a campaign first</p>
+                <p className="text-center text-muted-foreground">
+                  Please select a campaign first
+                </p>
               </CardContent>
             </Card>
           ) : (
@@ -216,15 +228,22 @@ export default function HomePage() {
               <Card className="mb-4">
                 <CardContent className="pt-6 flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Current Campaign:</p>
+                    <p className="text-sm text-muted-foreground">
+                      Current Campaign:
+                    </p>
                     <p className="text-lg font-medium">
-                      {campaignsQuery.data?.find((c: Campaign) => c.id === selectedCampaign)?.name}
+                      {campaignsQuery.data?.find(
+                        (c: Campaign) => c.id === selectedCampaign
+                      )?.name}
                     </p>
                   </div>
-                  <Button variant="outline" onClick={() => {
-                    setSelectedCampaign("");
-                    setActiveTab("campaigns");
-                  }}>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedCampaign("");
+                      setActiveTab("campaigns");
+                    }}
+                  >
                     Change Campaign
                   </Button>
                 </CardContent>
@@ -236,13 +255,13 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex gap-4 mb-4">
-                    <Input 
-                      placeholder="Search keywords..." 
+                    <Input
+                      placeholder="Search keywords..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="flex-1"
                     />
-                    <Button 
+                    <Button
                       onClick={handleAddSelectedKeywords}
                       disabled={selectedKeywords.size === 0 || addKeywordMutation.isPending}
                     >
@@ -259,23 +278,39 @@ export default function HomePage() {
                     <div className="flex justify-center py-4">
                       <Loader2 className="h-6 w-6 animate-spin" />
                     </div>
+                  ) : wordstatQuery.isError ? (
+                    <div className="text-center text-destructive py-4">
+                      {wordstatQuery.error?.message || "Failed to load suggestions"}
+                    </div>
                   ) : wordstatQuery.data?.response?.data?.shows ? (
                     <div className="space-y-2">
-                      {wordstatQuery.data.response.data.shows.map((item: any, index: number) => (
-                        <div key={index} className="flex items-center space-x-4 p-2 hover:bg-muted rounded">
-                          <Checkbox
-                            checked={selectedKeywords.has(item.phrase)}
-                            onCheckedChange={() => handleKeywordSelect(item.phrase)}
-                          />
-                          <span className="flex-1">{item.phrase}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {item.shows} shows/month
-                          </span>
-                        </div>
-                      ))}
+                      {wordstatQuery.data.response.data.shows.map(
+                        (item: any, index: number) => (
+                          <div
+                            key={index}
+                            className="flex items-center space-x-4 p-2 hover:bg-muted rounded"
+                          >
+                            <Checkbox
+                              checked={selectedKeywords.has(item.phrase)}
+                              onCheckedChange={() =>
+                                handleKeywordSelect(item.phrase)
+                              }
+                            />
+                            <span className="flex-1">{item.phrase}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {new Intl.NumberFormat("ru-RU").format(
+                                item.shows
+                              )}{" "}
+                              shows/month
+                            </span>
+                          </div>
+                        )
+                      )}
                     </div>
                   ) : searchTerm.length > 2 ? (
-                    <p className="text-center text-muted-foreground py-4">No suggestions found</p>
+                    <p className="text-center text-muted-foreground py-4">
+                      No suggestions found
+                    </p>
                   ) : null}
                 </CardContent>
               </Card>
@@ -286,13 +321,15 @@ export default function HomePage() {
                   <Card key={keyword.id}>
                     <CardContent className="pt-4">
                       <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold">{keyword.keyword}</h3>
+                        <h3 className="text-lg font-semibold">
+                          {keyword.keyword}
+                        </h3>
                         <div className="flex items-center gap-2">
                           <p className="text-sm text-muted-foreground">
-                            Trend: {keyword.trend_score || 'N/A'}
+                            Trend: {keyword.trend_score || "N/A"}
                           </p>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="icon"
                             onClick={() => deleteKeywordMutation.mutate(keyword.id)}
                           >
