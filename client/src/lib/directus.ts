@@ -141,10 +141,10 @@ export async function getKeywords(campaignId?: string) {
     };
 
     if (campaignId) {
-      filter._and.push({ campaign: { id: { _eq: campaignId } } });
+      filter._and.push({ campaign_id: { _eq: campaignId } });
     }
 
-    const url = `/items/user_keywords?fields=*,campaign.*&filter=${JSON.stringify(filter)}`;
+    const url = `/items/user_keywords?filter=${JSON.stringify(filter)}`;
     console.log('Request URL:', url);
     const response = await client.get(url);
     console.log('Keywords API response:', response);
@@ -162,12 +162,6 @@ export async function getKeywords(campaignId?: string) {
         data: error.response?.data,
         headers: error.response?.headers
       });
-
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        const token = localStorage.getItem('directus_token');
-        console.log('Current token exists:', !!token);
-        throw new Error('Session expired or insufficient permissions. Please login again.');
-      }
       throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to fetch keywords');
     }
     throw error;
@@ -241,12 +235,6 @@ export async function addKeyword(keyword: string, campaignId?: string) {
       throw new Error('User ID not found. Please login again.');
     }
 
-    // Проверяем существование ключевого слова в этой кампании
-    const exists = await checkKeywordExists(keyword);
-    if (exists) {
-      throw new Error('This keyword is already in your semantic core');
-    }
-
     // Получаем статистику перед добавлением ключевого слова
     const wordstatData = await getWordstatData(keyword);
     console.log('Received WordStat data:', wordstatData);
@@ -257,7 +245,7 @@ export async function addKeyword(keyword: string, campaignId?: string) {
 
     const payload = {
       user_id: userId,
-      campaign: campaignId ? { id: campaignId } : null,
+      campaign_id: campaignId || null,
       keyword: keyword,
       type: "main",
       trend_score,
