@@ -1,27 +1,13 @@
 {
-  "model": "gpt-4o",
-  "messages": [
-    {
-      "role": "system",
-      "content": "You are an expert SEO analyst specializing in keyword trend prediction. Analyze the data and return ONLY valid JSON with these fields:\n- trend_direction: must be 'up', 'down', or 'stable'\n- growth_potential: number between 0-100\n- confidence_score: number between 0-1\n- seasonality: array of month names (e.g. [\"January\", \"February\"])\n- prediction_date: current date in ISO format"
-    },
-    {
-      "role": "user",
-      "content": {
-        "keyword": "example_keyword",
-        "analysis": {
-          "totalDataPoints": 12,
-          "recentAverage": 245.5,
-          "historicalAverage": 200.3,
-          "percentChange": 22.56,
-          "peakMonths": ["December", "January"],
-          "lowMonths": ["July", "August"],
-          "monthlyPatterns": [250, 240, 220, 210, 190, 180, 170, 175, 190, 210, 230, 245],
-          "sourceCount": 15
-        }
-      }
-    }
-  ],
-  "temperature": 0.2,
-  "response_format": { "type": "json_object" }
+  "keyword": "example_keyword",
+  "analysis": {
+    "totalDataPoints": 12,
+    "recentAverage": 245.5,
+    "historicalAverage": 200.3,
+    "percentChange": 22.56,
+    "peakMonths": ["December", "January"],
+    "lowMonths": ["July", "August"],
+    "monthlyPatterns": [250, 240, 220, 210, 190, 180, 170, 175, 190, 210, 230, 245],
+    "sourceCount": 15
+  }
 }
