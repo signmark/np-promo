@@ -79,16 +79,19 @@ export async function getUserInfo() {
   }
 }
 
-export async function getKeywords() {
+export async function getKeywords(campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
     if (!userId) {
       throw new Error('User ID not found. Please login again.');
     }
 
-    const { data } = await client.get<{ data: KeywordWithTrend[] }>(
-      `/items/user_keywords?sort=-id&filter[user_id][_eq]=${userId}`
-    );
+    let url = `/items/user_keywords?sort=-id&filter[user_id][_eq]=${userId}`;
+    if (campaignId) {
+      url += `&filter[campaign_id][_eq]=${campaignId}`;
+    }
+
+    const { data } = await client.get<{ data: KeywordWithTrend[] }>(url);
     return data.data;
   } catch (error) {
     console.error('Get keywords error:', error);

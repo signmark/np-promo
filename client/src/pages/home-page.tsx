@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, UseFormHandleSubmit } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as directus from "@/lib/directus";
@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Trash2, Plus, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AnimatedTrend } from "@/components/animated-trend";
 
 const addCampaignSchema = z.object({
@@ -33,10 +33,9 @@ const addKeywordSchema = z.object({
 });
 
 export default function HomePage() {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [selectedCampaign, setSelectedCampaign] = useState("");
-  const [trendPredictions, setTrendPredictions] = useState({});
+  const [trendPredictions, setTrendPredictions] = useState<Record<string, any>>({});
 
   const campaignsQuery = useQuery({
     queryKey: ["campaigns"],
@@ -46,7 +45,7 @@ export default function HomePage() {
   const keywordsQuery = useQuery({
     queryKey: ["keywords", selectedCampaign],
     queryFn: () => directus.getKeywords(selectedCampaign),
-    enabled: !!selectedCampaign,
+    enabled: true, // Allow query to run even without selectedCampaign
   });
 
   const addCampaignMutation = useMutation({
@@ -66,7 +65,12 @@ export default function HomePage() {
   });
 
   const addKeywordMutation = useMutation({
-    mutationFn: directus.addKeyword,
+    mutationFn: async (data: { keyword: string; campaign_id: string }) => {
+      if (!data.campaign_id) {
+        throw new Error("Please select a campaign first");
+      }
+      return directus.addKeyword(data.keyword, data.campaign_id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["keywords", selectedCampaign] });
       keywordForm.reset();
@@ -81,8 +85,21 @@ export default function HomePage() {
 
   const keywordForm = useForm({
     resolver: zodResolver(addKeywordSchema),
-    defaultValues: { keyword: "", campaign_id: "" },
+    defaultValues: { keyword: "", campaign_id: selectedCampaign },
   });
+
+  // Update form when selectedCampaign changes
+  useEffect(() => {
+    keywordForm.setValue("campaign_id", selectedCampaign);
+  }, [selectedCampaign, keywordForm]);
+
+  const handleCampaignSelect = (campaignId: string) => {
+    setSelectedCampaign(campaignId);
+    const keywordsTab = document.querySelector('[value="keywords"]') as HTMLElement;
+    if (keywordsTab) {
+      keywordsTab.click();
+    }
+  };
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -133,7 +150,7 @@ export default function HomePage() {
             </CardContent>
           </Card>
 
-          {campaignsQuery.data?.map((campaign) => (
+          {campaignsQuery.data?.map((campaign: any) => (
             <Card key={campaign.id} className="mt-4">
               <CardHeader>
                 <CardTitle>{campaign.name}</CardTitle>
@@ -143,15 +160,7 @@ export default function HomePage() {
                 <Button
                   variant="secondary"
                   className="mt-2"
-                  onClick={() => {
-                    setSelectedCampaign(campaign.id);
-                    const keywordsTab = document.querySelector('[value="keywords"]') as HTMLElement;
-                    if (keywordsTab) {
-                      keywordsTab.click();
-                      // Force keyword query refetch
-                      keywordsQuery.refetch();
-                    }
-                  }}
+                  onClick={() => handleCampaignSelect(campaign.id)}
                 >
                   View Keywords
                 </Button>
@@ -173,7 +182,9 @@ export default function HomePage() {
                 <CardContent className="pt-6 flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Current Campaign:</p>
-                    <p className="text-lg font-medium">{campaignsQuery.data?.find(c => c.id === selectedCampaign)?.name}</p>
+                    <p className="text-lg font-medium">
+                      {campaignsQuery.data?.find((c: any) => c.id === selectedCampaign)?.name}
+                    </p>
                   </div>
                   <Button variant="outline" onClick={() => setSelectedCampaign("")}>
                     Change Campaign
@@ -200,9 +211,9 @@ export default function HomePage() {
                             .slice(0, 10);
 
                           // Add original keyword first
-                          addKeywordMutation.mutate({ 
+                          addKeywordMutation.mutate({
                             keyword: data.keyword,
-                            campaign_id: selectedCampaign 
+                            campaign_id: selectedCampaign
                           });
 
                           // Add suggested keywords
@@ -238,7 +249,7 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
-              {keywordsQuery.data?.map((keyword) => (
+              {keywordsQuery.data?.map((keyword: any) => (
                 <Card key={keyword.id} className="mt-4">
                   <CardContent className="pt-4">
                     <div className="flex justify-between items-center">
