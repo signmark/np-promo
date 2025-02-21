@@ -123,7 +123,7 @@ export async function getUserInfo() {
   }
 }
 
-// В функции getKeywords обновляем фильтр
+// В функции getKeywords обновляем фильтр для корректной работы со связями
 export async function getKeywords(campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -133,17 +133,14 @@ export async function getKeywords(campaignId?: string) {
 
     console.log('Fetching keywords for user:', userId, 'campaign:', campaignId);
 
-    const filter = {
-      _and: [
-        { user_id: { _eq: userId } }
-      ]
-    };
+    let url = `/items/user_keywords?filter[user_id][_eq]=${userId}`;
 
     if (campaignId) {
-      filter._and.push({ campaigns: { campaign_id: { _eq: campaignId } } });
+      url += `&filter[user_keywords_campaigns][campaign_id][_eq]=${campaignId}`;
     }
 
-    const url = `/items/user_keywords?filter=${JSON.stringify(filter)}`;
+    url += '&fields=*,user_keywords_campaigns.campaign_id';
+
     console.log('Request URL:', url);
     const response = await client.get(url);
     console.log('Keywords API response:', response);
@@ -224,7 +221,7 @@ export async function checkKeywordExists(keyword: string): Promise<boolean> {
   }
 }
 
-// В функции addKeyword обновляем payload
+// В функции addKeyword обновляем payload для создания связей
 export async function addKeyword(keyword: string, campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -248,8 +245,11 @@ export async function addKeyword(keyword: string, campaignId?: string) {
       type: "main",
       trend_score: trend_score.toString(),
       mentions_count: mentions_count.toString(),
-      campaigns: campaignId ? {
-        create: [{ campaign_id: campaignId }]
+      user_keywords_campaigns: campaignId ? {
+        create: [{
+          keyword_id: "$CURRENT_ID",
+          campaign_id: campaignId
+        }]
       } : undefined
     };
     console.log('Request payload:', payload);
