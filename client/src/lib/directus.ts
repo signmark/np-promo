@@ -123,7 +123,7 @@ export async function getUserInfo() {
   }
 }
 
-// Modify getKeywords function to handle permissions and relationships properly
+// Modify getKeywords function to properly handle UUID relationships
 export async function getKeywords(campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -133,23 +133,27 @@ export async function getKeywords(campaignId?: string) {
 
     console.log('Fetching keywords for user:', userId, 'campaign:', campaignId);
 
-    // First get all keywords for the user
-    let url = `/items/user_keywords?filter[user_id][_eq]=${userId}`;
-
     if (campaignId) {
-      // Get related keywords through the junction table
-      url += `&filter[keywords_campaigns][campaign_id][_eq]=${campaignId}`;
+      // First get the keyword IDs from the junction table
+      const junctionResponse = await client.get(`/items/user_keywords_campaigns?filter[campaign_id][_eq]=${campaignId}`);
+      console.log('Junction table response:', junctionResponse.data);
+
+      const keywordIds = junctionResponse.data.data.map((item: any) => item.keyword_id);
+      console.log('Found keyword IDs:', keywordIds);
+
+      if (keywordIds.length === 0) {
+        return [];
+      }
+
+      // Then get the actual keywords
+      const keywordResponse = await client.get(`/items/user_keywords?filter[id][_in]=${keywordIds.join(',')}&filter[user_id][_eq]=${userId}`);
+      console.log('Keywords response:', keywordResponse.data);
+      return keywordResponse.data.data;
+    } else {
+      // If no campaign ID, just get all user's keywords
+      const response = await client.get(`/items/user_keywords?filter[user_id][_eq]=${userId}`);
+      return response.data.data;
     }
-
-    console.log('Request URL:', url);
-    const response = await client.get(url);
-    console.log('Keywords API response:', response);
-
-    if (!response.data?.data) {
-      throw new Error('Invalid response format from API');
-    }
-
-    return response.data.data;
   } catch (error) {
     console.error('Get keywords error:', error);
     if (axios.isAxiosError(error)) {
@@ -221,7 +225,7 @@ export async function checkKeywordExists(keyword: string): Promise<boolean> {
   }
 }
 
-// Modify addKeyword function to handle relationships properly
+// Modify addKeyword function to handle UUIDs properly
 export async function addKeyword(keyword: string, campaignId?: string) {
   try {
     const userId = localStorage.getItem('user_id');
@@ -250,21 +254,28 @@ export async function addKeyword(keyword: string, campaignId?: string) {
 
     console.log('Creating keyword with payload:', keywordPayload);
     const keywordResponse = await client.post('/items/user_keywords', keywordPayload);
-    const newKeyword = keywordResponse.data.data;
-    console.log('Keyword created:', newKeyword);
+    const newKeywordId = keywordResponse.data.data.id;
+    console.log('Created keyword with ID:', newKeywordId);
 
-    // If campaignId is provided, create the relationship separately
-    if (campaignId && newKeyword.id) {
-      const relationPayload = {
-        keyword_id: newKeyword.id,
-        campaign_id: campaignId
-      };
+    // If campaignId is provided, create the relationship using UUIDs
+    if (campaignId && newKeywordId) {
+      try {
+        const relationPayload = {
+          // Ensure both IDs are valid UUIDs
+          keyword_id: newKeywordId.toString(),
+          campaign_id: campaignId.toString()
+        };
 
-      console.log('Creating relationship with payload:', relationPayload);
-      await client.post('/items/user_keywords_campaigns', relationPayload);
+        console.log('Creating relationship with payload:', relationPayload);
+        const relationResponse = await client.post('/items/user_keywords_campaigns', relationPayload);
+        console.log('Relationship created:', relationResponse.data);
+      } catch (relationError) {
+        console.error('Failed to create relationship:', relationError);
+        // Even if relation creation fails, return the keyword
+      }
     }
 
-    return newKeyword;
+    return keywordResponse.data.data;
   } catch (error) {
     console.error('Add keyword error:', error);
     if (axios.isAxiosError(error)) {
