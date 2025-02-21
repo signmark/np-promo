@@ -1,0 +1,41 @@
+Dear OpenAI Team,
+
+I am writing to appeal the suspension of my OpenAI API account (User ID: user-PWOc0EWmrLKNcC8cf6XSxrDX). I would like to explain the nature of our API usage and demonstrate that we are operating within your usage policies.
+
+Our Application:
+We are developing an SEO and content strategy platform that helps digital marketers analyze keyword trends and optimize their content strategy. The application uses OpenAI's API specifically for analyzing historical keyword performance data and predicting future trends.
+
+API Usage Details:
+1. Purpose: Our API calls are strictly focused on analyzing statistical data for keyword trends
+2. Implementation:
+   - We use the chat completions endpoint with gpt-4o model
+   - All requests are structured with a specific JSON schema
+   - We maintain a low temperature (0.2) for consistent, predictable outputs
+   - We use response_format: { type: "json_object" } for structured responses
+
+Request Format:
+- System message: Defines the role as an SEO analyst and specifies the exact JSON structure required
+- User message: Contains only statistical data (keyword metrics, historical performance)
+- Expected response: Structured JSON with trend analysis (direction, growth potential, confidence score)
+
+Safety Measures:
+1. Rate limiting implementation
+2. Strict input validation
+3. Structured output format enforcement
+4. No user-generated content is sent to the API
+5. All requests are for legitimate business analysis purposes
+
+Our usage strictly adheres to OpenAI's policies:
+1. We do not generate harmful or malicious content
+2. We maintain data privacy and security
+3. We use the API for its intended purpose of data analysis
+4. We have implemented proper rate limiting and error handling
+
+I have attached an example of our typical API request for your review. I would greatly appreciate if you could review our appeal and reinstate our API access. We are committed to maintaining compliance with OpenAI's policies and guidelines.
+
+Please let me know if you need any additional information about our implementation or use case.
+
+Thank you for your consideration.
+
+Best regards,
+[Your Name]
