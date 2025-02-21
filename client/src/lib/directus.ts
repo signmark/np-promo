@@ -245,7 +245,7 @@ export async function addKeyword(keyword: string, campaignId?: string) {
 
     const payload = {
       user_id: userId,
-      campaign_id: campaignId || null,
+      campaign_id: campaignId || null,  // Убедимся, что campaign_id всегда передается
       keyword: keyword,
       type: "main",
       trend_score,
