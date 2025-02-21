@@ -11,23 +11,66 @@ const client = axios.create({
   }
 });
 
-client.interceptors.request.use((config) => {
+// Add request interceptor to refresh token if needed
+client.interceptors.request.use(async (config) => {
   const token = localStorage.getItem('directus_token');
-  if (token) {
+  const refreshToken = localStorage.getItem('directus_refresh_token');
+
+  if (!token && refreshToken) {
+    try {
+      const response = await axios.post(`${API_URL}/auth/refresh`, {
+        refresh_token: refreshToken
+      });
+
+      if (response.data?.data?.access_token) {
+        localStorage.setItem('directus_token', response.data.data.access_token);
+        config.headers.Authorization = `Bearer ${response.data.data.access_token}`;
+      }
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      window.location.href = '/auth';
+      return Promise.reject(error);
+    }
+  } else if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
   return config;
 });
 
+// Modify response interceptor for better error handling
 client.interceptors.response.use(
   (response) => response,
-  (error) => {
-    console.error('API Error:', error);
-    if (error.response?.status === 401 || error.response?.status === 403) {
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      const refreshToken = localStorage.getItem('directus_refresh_token');
+
+      if (refreshToken) {
+        try {
+          const response = await axios.post(`${API_URL}/auth/refresh`, {
+            refresh_token: refreshToken
+          });
+
+          if (response.data?.data?.access_token) {
+            localStorage.setItem('directus_token', response.data.data.access_token);
+            originalRequest.headers.Authorization = `Bearer ${response.data.data.access_token}`;
+            return client(originalRequest);
+          }
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+        }
+      }
+
       localStorage.removeItem('directus_token');
+      localStorage.removeItem('directus_refresh_token');
+      localStorage.removeItem('user_id');
       window.location.href = '/auth';
       return Promise.reject(new Error('Session expired. Please login again.'));
     }
+
     return Promise.reject(error);
   }
 );
@@ -40,6 +83,7 @@ export async function login(credentials: LoginCredentials) {
 
     if (response.data?.data?.access_token) {
       localStorage.setItem('directus_token', response.data.data.access_token);
+      localStorage.setItem('directus_refresh_token', response.data.data.refresh_token);
 
       const userResponse = await client.get('/users/me');
       const userInfo = userResponse.data.data;

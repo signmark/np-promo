@@ -35,10 +35,16 @@ const addKeywordSchema = z.object({
 const TOTAL_STEPS = 2; // Campaigns and Keywords tabs
 
 export default function HomePage() {
+  const { user } = useAuth(); // Add auth check
   const { toast } = useToast();
   const [selectedCampaign, setSelectedCampaign] = useState("");
   const [activeTab, setActiveTab] = useState("campaigns");
   const [trendPredictions, setTrendPredictions] = useState<Record<string, any>>({});
+
+  // Redirect if not authenticated
+  if (!user) {
+    return null; // ProtectedRoute will handle the redirect
+  }
 
   const getCurrentStep = () => {
     return activeTab === "campaigns" ? 0 : 1;
@@ -113,9 +119,9 @@ export default function HomePage() {
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
-      <NavigationProgress 
-        currentStep={getCurrentStep()} 
-        totalSteps={TOTAL_STEPS} 
+      <NavigationProgress
+        currentStep={getCurrentStep()}
+        totalSteps={TOTAL_STEPS}
       />
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
@@ -130,11 +136,11 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <Form {...campaignForm}>
-                <form 
+                <form
                   onSubmit={(e) => {
                     e.preventDefault();
                     campaignForm.handleSubmit((data) => addCampaignMutation.mutate(data))(e);
-                  }} 
+                  }}
                   className="space-y-4"
                 >
                   <FormField
@@ -238,7 +244,7 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <Form {...keywordForm}>
-                    <form 
+                    <form
                       onSubmit={(e) => {
                         e.preventDefault();
                         keywordForm.handleSubmit((data) => addKeywordMutation.mutate(data))(e);
