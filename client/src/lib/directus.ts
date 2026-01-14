@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { LoginCredentials, Keyword, SearchSettings } from "@shared/schema";
 import type { KeywordTrend, KeywordWithTrend } from "@shared/schema";
+import { predictKeywordTrend } from "./openai";
 
 const API_URL = "https://directus.nplanner.ru";
 
@@ -201,7 +202,7 @@ export async function getWordstatData(keyword: string): Promise<WordstatResponse
     }
 
     // Sort by shows count descending
-    data.response.data.shows.sort((a, b) => b.shows - a.shows);
+    data.response.data.shows.sort((a: { shows: number; phrase: string }, b: { shows: number; phrase: string }) => b.shows - a.shows);
 
     console.log('Transformed WordStat data:', data);
     return data;
@@ -301,9 +302,9 @@ export async function saveSearchSettings(settings: SearchSettings) {
     // Check if settings already exist
     const existingSettings = await getSearchSettings();
 
-    if (existingSettings) {
+    if (existingSettings && 'id' in existingSettings) {
       const { data } = await client.patch<{ data: SearchSettings }>(
-        `/items/search_settings/${existingSettings.id}`,
+        `/items/search_settings/${(existingSettings as any).id}`,
         settings
       );
       return data.data;
@@ -329,6 +330,11 @@ export async function generateSearchQuery(keyword: string, settings: SearchSetti
     const token = localStorage.getItem('directus_token');
     if (!token) {
       throw new Error('Authentication token not found. Please login again.');
+    }
+
+    const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
+    if (!N8N_WEBHOOK_URL) {
+      throw new Error('N8N_WEBHOOK_URL not configured');
     }
 
     const response = await fetch(N8N_WEBHOOK_URL, {
@@ -403,8 +409,6 @@ export async function getKeywordWithTrendPrediction(keyword: string): Promise<Ke
     throw error;
   }
 }
-
-export { predictKeywordTrend } from './openai';
 
 export async function getCampaigns() {
   try {

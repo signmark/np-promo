@@ -326,7 +326,7 @@ export default function HomePage() {
                         </h3>
                         <div className="flex items-center gap-2">
                           <p className="text-sm text-muted-foreground">
-                            Trend: {keyword.trend_score || "N/A"}
+                            Trend: {(keyword as any).trend_score || "N/A"}
                           </p>
                           <Button
                             variant="ghost"
@@ -337,9 +337,9 @@ export default function HomePage() {
                           </Button>
                         </div>
                       </div>
-                      {keyword.mentions_count && (
+                      {(keyword as any).mentions_count && (
                         <p className="text-sm text-muted-foreground mt-2">
-                          Mentions: {keyword.mentions_count}
+                          Mentions: {(keyword as any).mentions_count}
                         </p>
                       )}
                     </CardContent>

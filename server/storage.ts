@@ -1,4 +1,16 @@
-import { users, type User, type InsertUser } from "@shared/schema";
+// import { users, type User, type InsertUser } from "@shared/schema";
+// Note: User and InsertUser types are no longer in @shared/schema
+// The interface below defines them locally for storage operations
+
+// Local type definitions for user storage
+export interface User {
+  id: number;
+  username: string;
+}
+
+export interface InsertUser {
+  username: string;
+}
 
 // modify the interface with any CRUD methods
 // you might need
